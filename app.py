@@ -1,8 +1,18 @@
 import streamlit as st
-from main import process_csv, load_and_rename_master, filter_existing_products
+from main import process_csv, load_and_rename_master, filter_existing_products, generate_csv_template
 
 # Streamlit app title
 st.title("Minaki Inventory Creation")
+
+# Step 1: Template Download (from previous code)
+st.subheader("Download CSV Template")
+template_buffer = generate_csv_template()
+st.download_button(
+    label="Download CSV Template",
+    data=template_buffer,
+    file_name="template.csv",
+    mime="text/csv"
+)
 
 # File uploader for CSV files
 uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])

@@ -5,6 +5,7 @@ from io import BytesIO
 import requests
 import re
 from dotenv import load_dotenv
+import io
 
 # Load environment variables from .env file
 load_dotenv()
@@ -120,6 +121,30 @@ def process_excel(file):
     else:
         raise ValueError("Required columns are missing.")
     
+
+
+def generate_csv_template():
+    """
+    Generates a CSV template for the user to download.
+    """
+    # Define the columns and optionally add a sample row
+    template_df = pd.DataFrame({
+        "UPI": [""],
+        "Product Type": [""], 
+        "Color": [""],
+        "Size": [""],
+        "Price": [""],
+        "Quantity": [""],
+        "Is Product Present (Y/N)": ["N"]
+    })
+    
+    # Write the DataFrame to a BytesIO buffer as CSV
+    buffer = io.BytesIO()
+    template_df.to_csv(buffer, index=False)
+    buffer.seek(0)  # reset the pointer to the beginning of the buffer
+
+    return buffer
+
 
 def process_csv(file_content):
     # Read the CSV file into a DataFrame
