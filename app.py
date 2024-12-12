@@ -2,7 +2,7 @@ import streamlit as st
 from main import process_csv
 
 # Streamlit app title
-st.title("CSV File Viewer")
+st.title("Minaki Inventory Creation")
 
 # File uploader for CSV files
 uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
