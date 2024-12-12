@@ -1,4 +1,3 @@
 pandas
 xlrd
-io
 streamlit
