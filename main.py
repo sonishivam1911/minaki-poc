@@ -10,7 +10,7 @@ import io
 
 # Set up logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.ERROR,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler("process_logs.log"),
