@@ -2,11 +2,11 @@ import pandas as pd
 import xlrd
 import os
 import logging
-from io import BytesIO
-import requests
 import re
 from dotenv import load_dotenv
 import io
+import numpy as np
+import cv2
 
 # Set up logging
 logging.basicConfig(
@@ -557,10 +557,73 @@ def aggregated_df(new_sku_df, existing_sku_df):
         raise
 
 
-# file = '/Users/shivamsoni/Downloads/Vendor Order Template - Template.csv'
-# df=process_csv(file,82.15)
-# print(df.head())
 
-# file = 'order_prod.csv'
-# df=process_csv(file)
-# print(df.head())
+def remove_watermark(image_path, output_dir, sku):
+    """
+    Removes watermark from the image and saves it in the corresponding SKU folder.
+
+    Args:
+        image_path (str): Path to the input image.
+        output_dir (str): Directory where the processed images will be saved.
+        sku (str): SKU identifier for the product.
+
+    Returns:
+        str: Path to the saved processed image.
+    """
+    try:
+        # Load the image
+        image = cv2.imread(image_path)
+        if image is None:
+            raise ValueError(f"Unable to load image: {image_path}")
+
+        # Get image dimensions
+        height, width, _ = image.shape
+
+        # Define watermark regions (manually defined based on images provided)
+        # Adjust these values based on the position of "Xuping" and the website watermark
+        watermark_regions = [
+            (0, 3, 260, 189),  # Top-left region for "Xuping"
+            (454, 837, 900, 897)  # Bottom-right region for website URL
+        ]
+
+        mask = np.zeros(image.shape[:2], dtype=np.uint8)  # Mask for inpainting
+
+        # Create mask for watermark regions
+        for x1, y1, x2, y2 in watermark_regions:
+            mask[y1:y2, x1:x2] = 255
+
+        # Inpaint to remove watermark
+        inpainted_image = cv2.inpaint(image, mask, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Create output folder for SKU if it doesn't exist
+        sku_folder = os.path.join(output_dir, sku)
+        os.makedirs(sku_folder, exist_ok=True)
+
+        # Save the processed image
+        output_path = os.path.join(sku_folder, os.path.basename(image_path))
+        cv2.imwrite(output_path, inpainted_image)
+
+        return output_path
+
+    except Exception as e:
+        print(f"Error processing {image_path}: {e}")
+        return None
+
+
+def process_images(image_paths, output_dir, sku):
+    """
+    Processes a list of images for a particular SKU.
+
+    Args:
+        image_paths (list): List of image paths to process.
+        output_dir (str): Directory to save processed images.
+        sku (str): SKU identifier for the product.
+    """
+    for image_path in image_paths:
+        processed_path = remove_watermark(image_path, output_dir, sku)
+        if processed_path:
+            print(f"Processed and saved: {processed_path}")
+        else:
+            print(f"Failed to process: {image_path}")
