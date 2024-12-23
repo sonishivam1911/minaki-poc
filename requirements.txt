@@ -3,3 +3,4 @@ xlrd
 streamlit
 python-dotenv
 openpyxl
+opencv-python-headless
