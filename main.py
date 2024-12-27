@@ -627,3 +627,235 @@ def process_images(image_paths, output_dir, sku):
             print(f"Processed and saved: {processed_path}")
         else:
             print(f"Failed to process: {image_path}")
+
+
+def load_customer_data():
+    """
+    Load the default customer data CSV.
+
+    Args:
+        file_path (str): Path to the customer data CSV file.
+
+    Returns:
+        pd.DataFrame: DataFrame containing customer data.
+    """
+    try:
+        required_columns = ["Contact Name", "Display Name", "GST Identification Number (GSTIN)","Place of Supply"]
+
+        customer_data_df = pd.read_csv(
+                    'Contacts Updated.csv',
+                    encoding="utf-8",
+                    usecols=required_columns
+        )
+        return customer_data_df
+    except Exception as e:
+        raise ValueError(f"Error loading customer data: {e}")
+    
+
+def fetch_customer_row(customer_data_df, branch_name):
+    """
+    Fetch the row for the specified branch name as a JSON/dict.
+
+    Args:
+        customer_data_df (pd.DataFrame): DataFrame containing customer data.
+        branch_name (str): Branch name to filter.
+
+    Returns:
+        dict: Row data as a dictionary.
+    """
+    try:
+        # Filter customer data for the given branch name
+        filtered_row = customer_data_df[
+            (customer_data_df["Contact Name"].str.contains(branch_name, case=False, na=False)) |
+            (customer_data_df["Display Name"].str.contains(branch_name, case=False, na=False))
+        ]
+
+        if not filtered_row.empty:
+            return filtered_row.iloc[0].to_dict()
+        else:
+            return {"error": f"No data found for branch name: {branch_name}"}
+    except Exception as e:
+        return {"error": f"Error fetching row: {e}"}
+
+
+
+def fetch_customer_name_list():
+    customer_df = load_customer_data()
+    return customer_df["Display Name"].unique()
+
+
+
+
+def process_taj_sales(taj_sales_df,invoice_date):
+
+    # Create the final invoice template DataFrame
+    invoice_data = []
+
+    # Load product master and extract existing SKUs
+    product_master_df = load_and_rename_master()
+    existing_skus = product_master_df['SKU'].dropna().astype(str)
+
+    #load customer master
+    customer_master_df = load_customer_data()
+
+    logger.debug(f"Loaded product master with shape: {product_master_df.shape}")
+    logger.debug(f"Extracted {len(existing_skus)} existing SKUs for processing.")    
+
+    for _, row in taj_sales_df.iterrows():
+        style = row.get("Style", "").strip()
+        print_name = row.get("PrintName", "")
+        item_name = row.get("Item Name", "")
+        quantity = row.get("Qty", 0)
+        hsn_code = row.get("HSN Code", "")
+        tax_name = row.get("Tax Name", "")
+        total = row.get("TotalValue", 0)
+        branch_name = row.get("Branch Name","")
+        item_department = row.get("Item Department","")
+        customer_data = fetch_customer_row(customer_master_df,branch_name)
+
+        # Derived fields
+        item_desc = ""
+        sku=""
+        if style not in existing_skus:
+            item_desc = f"{style} - {print_name}"
+        else:
+            sku = style
+            item_desc = f"{print_name}"
+
+        tax_group = ""
+        if item_department == "MENS GARMENT":
+            tax_group = "IGST12" if customer_data["Place of Supply"] != "DL" else "GST12"
+        else:
+            tax_group = "IGST3" if customer_data["Place of Supply"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
+
+        item_tax_type = "ItemAmount"
+        if customer_data["Place of Supply"] == "DL":
+            item_tax_type = "Tax Group"
+        
+
+
+
+        # Static fields
+        invoice_number = row.get("Br")
+        template_name = "Taj"
+        currency_code = "INR"
+        gst_treatment = "business_gst"
+        terms_conditions = "Thanks for your business!"
+        payment_terms_label = "Net 30"
+
+        # Calculate due date by adding payment terms to the invoice date
+        payment_terms = customer_data.get("Payment Terms", 0)  # Default to 0 if not available
+        due_date = (invoice_date + pd.Timedelta(days=int(payment_terms))).strftime("%m/%d/%y")        
+
+        invoice_data.append({
+            "Invoice Date": invoice_date.strftime("%m/%d/%y"),
+            "Invoice Number": invoice_number,
+            "Invoice Status": "Draft",
+            "Customer Name": branch_name,
+            "Due Date": due_date,
+            "Template Name": template_name,
+            "Currency Code": currency_code,
+            "Place of Supply": customer_data["Place of Supply"],
+            "GST Treatment": gst_treatment,
+            "GST Identification Number (GSTIN)": customer_data["GST Identification Number (GSTIN)"],
+            "Item Name": item_name,
+            "SKU": sku,
+            "Item Desc": item_desc,
+            "Quantity": quantity,
+            "Item Price": total,
+            "Is Inclusive Tax": "TRUE",
+            "Discount(%)": 0,
+            "Item Tax": tax_group,
+            "Item Tax %": f"{row.get("Tax Name", 0) * 100}%",
+            "Item Tax Type": item_tax_type,
+            "HSN/SAC": hsn_code,
+            "Payment Terms Label": payment_terms_label,
+            "Terms & Conditions": terms_conditions,
+            "Item Type": "goods",
+        })
+
+        logger.debug(f"For the row : {row} the invoice list is {invoice_data}")
+
+    # Create a DataFrame for the final invoice
+    invoice_df = pd.DataFrame(invoice_data)
+    return invoice_df      
+
+
+
+def process_aza_sales(aza_sales_df,invoice_date,customer_name):
+    aza_sales_df = aza_sales_df[aza_sales_df["Code2"].notnull()]  # Filter rows where "Code" is not null
+
+    # Load product master and extract existing SKUs
+    product_master_df = load_and_rename_master()
+    existing_skus = product_master_df['SKU'].dropna().astype(str)
+
+
+    #load customer master
+    customer_master_df = load_customer_data()
+    customer_data = fetch_customer_row(customer_master_df,customer_name)
+    # Initialize the invoice data
+    invoice_data = []
+
+    # Calculate due date by adding payment terms to the invoice date
+    payment_terms = customer_data.get("Payment Terms", 0)  # Default to 0 if not available
+    due_date = (invoice_date + pd.Timedelta(days=int(payment_terms))).strftime("%m/%d/%y") 
+
+
+    for _, row in aza_sales_df.iterrows():
+        category = row.get("Category", "").lower()
+        hsn_code = "711790" if "jewelry" in category else "621132"
+        tax_rate = 3 if "jewelry" in category else 12
+        item_description=row.get("Item Description",0)
+        sku=row.get("Code2")
+
+        tax_group = "IGST3" if "igst" in row.get("Tax", "").lower() else "GST12"
+
+        # Derived fields
+        item_desc = ""
+        useSKU=""
+        if sku not in existing_skus:
+            item_desc = f"{sku} - {item_description}"
+        else:
+            useSKU = sku
+            item_desc = f"{item_description}"
+
+        tax_group = ""
+        if "jewelry" not in category:
+            tax_group = "IGST12" if customer_data["Place of Supply"] != "DL" else "GST12"
+        else:
+            tax_group = "IGST3" if customer_data["Place of Supply"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
+
+        item_tax_type = "ItemAmount"
+        if customer_data["Place of Supply"] == "DL":
+            item_tax_type = "Tax Group"        
+
+        invoice_data.append({
+            "Invoice Date": invoice_date,
+            "Invoice Number": "Draft",
+            "Invoice Status": "Draft",
+            "Customer Name": customer_name,
+            "Due Date": due_date,
+            "Template Name": "Final - B2B",
+            "Currency Code": "INR",
+            "Place of Supply": customer_data["Place of Supply"],
+            "GST Treatment": "business_gst",
+            "GST Identification Number (GSTIN)": customer_data["GST Identification Number (GSTIN)"],
+            "SKU": useSKU,
+            "Item Desc": item_desc,
+            "Quantity": row.get("Qty", 0),
+            "Item Price": row.get("Total", 0),
+            "Is Inclusive Tax": "TRUE",
+            "Discount(%)": 0,
+            "Item Tax": tax_group,
+            "Item Tax %": tax_rate,
+            "Item Tax Type": item_tax_type,
+            "HSN/SAC": hsn_code,
+            "Payment Terms Label": "Net30",
+            "Notes": "Thanks for your business!",
+            "Terms & Conditions": "Standard terms apply.",
+            "Item Type": "goods"
+        })
+
+    # Convert to DataFrame
+    invoice_df = pd.DataFrame(invoice_data)
+    return invoice_df   
