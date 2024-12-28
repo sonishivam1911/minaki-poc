@@ -694,17 +694,19 @@ def process_taj_sales(taj_sales_df,invoice_date):
     # Load product master and extract existing SKUs
     product_master_df = load_and_rename_master()
     existing_skus = product_master_df['SKU'].dropna().astype(str)
+    existing_skus = set(existing_skus)
 
     #load customer master
     customer_master_df = load_customer_data()
 
     logger.debug(f"Loaded product master with shape: {product_master_df.shape}")
     logger.debug(f"Extracted {len(existing_skus)} existing SKUs for processing.")    
+    # print(f"Extracted {len(set(existing_skus))} existing SKUs for processing.")   
 
     for _, row in taj_sales_df.iterrows():
         style = row.get("Style", "").strip()
         print_name = row.get("PrintName", "")
-        item_name = row.get("Item Name", "")
+        item_name = ""
         quantity = row.get("Qty", 0)
         hsn_code = row.get("HSN Code", "")
         tax_name = row.get("Tax Name", "")
@@ -721,12 +723,14 @@ def process_taj_sales(taj_sales_df,invoice_date):
         else:
             sku = style
             item_desc = f"{print_name}"
+            item_name = product_master_df[product_master_df["SKU"] == sku].to_dict('records')[0]["Item_Name"]
+            # print(f"item name is {str(item_name)}")
 
         tax_group = ""
         if item_department == "MENS GARMENT":
             tax_group = "IGST12" if customer_data["Place of Supply"] != "DL" else "GST12"
         else:
-            tax_group = "IGST3" if customer_data["Place of Supply"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
+            tax_group = "IGST 3" if customer_data["Place of Supply"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
 
         item_tax_type = "ItemAmount"
         if customer_data["Place of Supply"] == "DL":
@@ -745,14 +749,13 @@ def process_taj_sales(taj_sales_df,invoice_date):
 
         # Calculate due date by adding payment terms to the invoice date
         payment_terms = customer_data.get("Payment Terms", 0)  # Default to 0 if not available
-        due_date = (invoice_date + pd.Timedelta(days=int(payment_terms))).strftime("%m/%d/%y")        
+        due_date = (invoice_date + pd.Timedelta(days=int(payment_terms))).strftime("%y-%m-%d")        
 
         invoice_data.append({
-            "Invoice Date": invoice_date.strftime("%m/%d/%y"),
+            "Invoice Date": invoice_date.strftime("%y-%m-%d") ,
             "Invoice Number": invoice_number,
             "Invoice Status": "Draft",
             "Customer Name": branch_name,
-            "Due Date": due_date,
             "Template Name": template_name,
             "Currency Code": currency_code,
             "Place of Supply": customer_data["Place of Supply"],
@@ -766,7 +769,7 @@ def process_taj_sales(taj_sales_df,invoice_date):
             "Is Inclusive Tax": "TRUE",
             "Discount(%)": 0,
             "Item Tax": tax_group,
-            "Item Tax %": f"{row.get("Tax Name", 0) * 100}%",
+            "Item Tax %": f"{row.get("Tax Name", 0) * 100}",
             "Item Tax Type": item_tax_type,
             "HSN/SAC": hsn_code,
             "Payment Terms Label": payment_terms_label,
@@ -788,6 +791,7 @@ def process_aza_sales(aza_sales_df,invoice_date,customer_name):
     # Load product master and extract existing SKUs
     product_master_df = load_and_rename_master()
     existing_skus = product_master_df['SKU'].dropna().astype(str)
+    existing_skus = set(existing_skus)
 
 
     #load customer master
@@ -798,48 +802,52 @@ def process_aza_sales(aza_sales_df,invoice_date,customer_name):
 
     # Calculate due date by adding payment terms to the invoice date
     payment_terms = customer_data.get("Payment Terms", 0)  # Default to 0 if not available
-    due_date = (invoice_date + pd.Timedelta(days=int(payment_terms))).strftime("%m/%d/%y") 
+    due_date = (invoice_date + pd.Timedelta(days=int(payment_terms))).strftime("%y-%m-%d") 
 
 
     for _, row in aza_sales_df.iterrows():
         category = row.get("Category", "").lower()
-        hsn_code = "711790" if "jewelry" in category else "621132"
-        tax_rate = 3 if "jewelry" in category else 12
+        hsn_code = "711790"
+        tax_rate = 3
+
         item_description=row.get("Item Description",0)
         sku=row.get("Code2")
 
-        tax_group = "IGST3" if "igst" in row.get("Tax", "").lower() else "GST12"
+        tax_group = "IGST 3" if "igst" in row.get("Tax", "").lower() else "GST12"
 
         # Derived fields
         item_desc = ""
         useSKU=""
+        item_name = ""
         if sku not in existing_skus:
             item_desc = f"{sku} - {item_description}"
         else:
             useSKU = sku
             item_desc = f"{item_description}"
+            item_name = product_master_df[product_master_df["SKU"] == sku].to_dict('records')[0]["Item_Name"]
+            # print(f"item name is {str(item_name)}")
 
         tax_group = ""
         if "jewelry" not in category:
             tax_group = "IGST12" if customer_data["Place of Supply"] != "DL" else "GST12"
         else:
-            tax_group = "IGST3" if customer_data["Place of Supply"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
+            tax_group = "IGST 3" if customer_data["Place of Supply"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
 
         item_tax_type = "ItemAmount"
         if customer_data["Place of Supply"] == "DL":
             item_tax_type = "Tax Group"        
 
         invoice_data.append({
-            "Invoice Date": invoice_date,
+            "Invoice Date": invoice_date.strftime("%y-%m-%d") ,
             "Invoice Number": "Draft",
             "Invoice Status": "Draft",
             "Customer Name": customer_name,
-            "Due Date": due_date,
             "Template Name": "Final - B2B",
             "Currency Code": "INR",
             "Place of Supply": customer_data["Place of Supply"],
             "GST Treatment": "business_gst",
             "GST Identification Number (GSTIN)": customer_data["GST Identification Number (GSTIN)"],
+            "Item Name": item_name,
             "SKU": useSKU,
             "Item Desc": item_desc,
             "Quantity": row.get("Qty", 0),
@@ -850,7 +858,7 @@ def process_aza_sales(aza_sales_df,invoice_date,customer_name):
             "Item Tax %": tax_rate,
             "Item Tax Type": item_tax_type,
             "HSN/SAC": hsn_code,
-            "Payment Terms Label": "Net30",
+            "Payment Terms Label": "Net 30",
             "Notes": "Thanks for your business!",
             "Terms & Conditions": "Standard terms apply.",
             "Item Type": "goods"
