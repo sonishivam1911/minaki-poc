@@ -827,11 +827,8 @@ def process_aza_sales(aza_sales_df,invoice_date,customer_name):
             item_name = product_master_df[product_master_df["SKU"] == sku].to_dict('records')[0]["Item_Name"]
             # print(f"item name is {str(item_name)}")
 
-        tax_group = ""
-        if "jewelry" not in category:
-            tax_group = "IGST12" if customer_data["Place of Supply"] != "DL" else "GST12"
-        else:
-            tax_group = "IGST 3" if customer_data["Place of Supply"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
+
+        tax_group = "IGST 3" if customer_data["Place of Supply"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
 
         item_tax_type = "ItemAmount"
         if customer_data["Place of Supply"] == "DL":
