@@ -13,7 +13,7 @@ uploaded_file = st.file_uploader("Upload Taj Sales Excel File", type=["xlsx"])
 if uploaded_file:
     # Read uploaded Excel file
     taj_sales_df = pd.read_excel(uploaded_file, sheet_name="Sheet1", skiprows=7) # Skip the first 7 rows
-    taj_sales_df = taj_sales_df[taj_sales_df['Br'].notnull()]
+    taj_sales_df = taj_sales_df[taj_sales_df['Br'].apply(lambda x: "Total" not in str(x) and pd.notna(x))]
     # st.dataframe(taj_sales_df)
 
     # Process the DataFrame

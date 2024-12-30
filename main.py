@@ -698,12 +698,16 @@ def process_taj_sales(taj_sales_df,invoice_date):
 
     #load customer master
     customer_master_df = load_customer_data()
+    
 
     logger.debug(f"Loaded product master with shape: {product_master_df.shape}")
     logger.debug(f"Extracted {len(existing_skus)} existing SKUs for processing.")    
-    # print(f"Extracted {len(set(existing_skus))} existing SKUs for processing.")   
+    # print(f"Extracted {len(set(existing_skus))} existing SKUs for processing.")  
+
+    taj_sales_df["Style"]=taj_sales_df["Style"].astype(str) 
 
     for _, row in taj_sales_df.iterrows():
+        # print(row)
         style = row.get("Style", "").strip()
         print_name = row.get("PrintName", "")
         item_name = ""
@@ -714,6 +718,7 @@ def process_taj_sales(taj_sales_df,invoice_date):
         branch_name = row.get("Branch Name","")
         item_department = row.get("Item Department","")
         customer_data = fetch_customer_row(customer_master_df,branch_name)
+        # print(f"Customer Data is {branch_name}")
 
         # Derived fields
         item_desc = ""
@@ -811,7 +816,7 @@ def process_aza_sales(aza_sales_df,invoice_date,customer_name):
         tax_rate = 3
 
         item_description=row.get("Item Description",0)
-        sku=row.get("Code2")
+        sku=row.get("Code2").strip()
 
         tax_group = "IGST 3" if "igst" in row.get("Tax", "").lower() else "GST12"
 
@@ -821,6 +826,7 @@ def process_aza_sales(aza_sales_df,invoice_date,customer_name):
         item_name = ""
         if sku not in existing_skus:
             item_desc = f"{sku} - {item_description}"
+            print(f"item sku is {str(sku)}")
         else:
             useSKU = sku
             item_desc = f"{item_description}"
