@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import io
 import numpy as np
 import cv2
+import math
 
 # Set up logging
 logging.basicConfig(
@@ -705,6 +706,7 @@ def process_taj_sales(taj_sales_df,invoice_date):
     # print(f"Extracted {len(set(existing_skus))} existing SKUs for processing.")  
 
     taj_sales_df["Style"]=taj_sales_df["Style"].astype(str) 
+    taj_sales_df['Rounded_Total'] = taj_sales_df['Total'].apply(lambda x: math.ceil(x) if x - int(x) >= 0.5 else math.floor(x))    
 
     for _, row in taj_sales_df.iterrows():
         # print(row)
@@ -714,7 +716,7 @@ def process_taj_sales(taj_sales_df,invoice_date):
         quantity = row.get("Qty", 0)
         hsn_code = row.get("HSN Code", "")
         tax_name = row.get("Tax Name", "")
-        total = row.get("TotalValue", 0)
+        total = row.get("Rounded_Total", 0)
         branch_name = row.get("Branch Name","")
         item_department = row.get("Item Department","")
         customer_data = fetch_customer_row(customer_master_df,branch_name)
