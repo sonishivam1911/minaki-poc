@@ -759,7 +759,7 @@ def process_taj_sales(taj_sales_df,invoice_date):
         due_date = (invoice_date + pd.Timedelta(days=int(payment_terms))).strftime("%y-%m-%d")        
 
         invoice_data.append({
-            "Invoice Date": invoice_date.strftime("%y-%m-%d") ,
+            "Invoice Date": invoice_date.strftime("%Y-%m-%d") ,
             "Invoice Number": invoice_number,
             "Invoice Status": "Draft",
             "Customer Name": branch_name,
