@@ -8,6 +8,9 @@ import io
 import numpy as np
 import cv2
 import math
+from io import BytesIO
+
+from data_layer.postgres_connector import crud
 
 # Set up logging
 logging.basicConfig(
@@ -94,7 +97,7 @@ COLUMN_RENAME_MAP = {
 def load_and_rename_master(filepath="product_master.csv"):
     try:
         logger.debug(f"Entering load_and_rename_master with filepath: {filepath}")
-        df = pd.read_csv(filepath)
+        df = crud.read_table("product_master")
         logger.debug(f"Loaded product master with shape: {df.shape}")
         df.rename(columns=COLUMN_RENAME_MAP, inplace=True)
         logger.debug("Renamed columns in product master.")
@@ -401,42 +404,7 @@ def process_csv(file_content,exchange_rate):
     # Create additional columns Cost, Purchase Price, and Selling Price without INR prefix
     df['Cost'] = df['MRP'].str.replace('INR ', '', regex=False).astype(float)
     df['Purchase Price'] = df['Cost']
-    df['Selling Price'] = df['Cost']    
-
-    # Would like to give user option to use filtering to select for SKU's which can't be mapped
-    # ExistingSKUDF = df[df["IsProductPresent"] == 'Y']
-    # NewSKUDF = df[df["IsProductPresent"] == 'N'] 
-
-    # updatedNewSKUDF = create_sku(NewSKUDF)
-
-    # print(updatedNewSKUDF)
-    # print(updatedNewSKUDF.columns)
-
-    # Convert Price from USD to INR
-    # Using an API key for ExchangeRate-API:
-    # api_key = os.getenv('EXCHANGE_RATE_API_KEY', None)
-    # if api_key is None:
-    #     print("No API key found in environment variable. Please set EXCHANGE_RATE_API_KEY.")
-    #     # Proceed without conversion if no API key
-    #     return df
-
-    # # Construct the request URL using the API key
-    # url = f"https://v6.exchangerate-api.com/v6/{api_key}/latest/USD"
-
-    # try:
-    #     response = requests.get(url)
-    #     response.raise_for_status()  # Raise an error if the request was not successful
-    #     data = response.json()
-        
-    #     if data.get('result') == 'success':
-    #         usd_to_inr = data['conversion_rates'].get('INR', None)
-    #         if usd_to_inr and 'Price' in df.columns:
-    #             df['Price_INR'] = df['Price'] * usd_to_inr
-    #     else:
-    #         print("API did not return a successful result. Proceeding without conversion.")
-    # except Exception as e:
-    #     print(f"Error fetching exchange rate: {e}")
-        # Proceed without adding the Price_INR column if the rate can't be fetched.     
+    df['Selling Price'] = df['Cost']     
 
     return df
 
@@ -458,7 +426,7 @@ def map_existing_products(df):
         logger.debug(f"Input DataFrame shape: {df.shape}")
 
         # Load master_output.xlsx
-        master_df = pd.read_excel('master_output.xlsx')
+        master_df = crud.read_table("vendor_sku_mapping")
         logger.debug(f"Loaded master DataFrame with shape: {master_df.shape}")
 
         # Exclude rows with null SKUs in master DataFrame
@@ -643,11 +611,8 @@ def load_customer_data():
     try:
         required_columns = ["Contact Name", "Display Name", "GST Identification Number (GSTIN)","Place of Supply"]
 
-        customer_data_df = pd.read_csv(
-                    'Contacts Updated.csv',
-                    encoding="utf-8",
-                    usecols=required_columns
-        )
+        customer_data_df = crud.read_table("customer_master")
+        customer_data_df = customer_data_df[required_columns]
         return customer_data_df
     except Exception as e:
         raise ValueError(f"Error loading customer data: {e}")
@@ -872,3 +837,106 @@ def process_aza_sales(aza_sales_df,invoice_date,customer_name):
     # Convert to DataFrame
     invoice_df = pd.DataFrame(invoice_data)
     return invoice_df   
+
+
+def preprocess_contacts(contacts_df):
+    """
+    Preprocesses the uploaded contacts DataFrame to filter individuals and map required columns.
+
+    Args:
+        contacts_df (pd.DataFrame): The input DataFrame containing contact details.
+
+    Returns:
+        pd.DataFrame: A DataFrame with filtered and mapped data.
+    """
+    # Filter rows where Customer Sub Type is 'individual'
+    individual_customers = contacts_df[contacts_df['Customer Sub Type'] == 'individual']
+
+    # Define a function to get the first non-null value from phone-related columns
+    def get_first_non_null(row):
+        for col in ['Phone', 'MobilePhone', 'Shipping Phone', 'Billing Phone']:
+            if col in row and pd.notnull(row[col]):
+                return row[col]
+        return None
+
+    # Apply phone extraction logic
+    individual_customers['phone'] = individual_customers.apply(get_first_non_null, axis=1)
+
+    # Select and rename relevant columns
+    mapped_data = individual_customers[['phone', 'First Name', 'Last Name']]
+    mapped_data.columns = ['phone', 'fn', 'ln']
+    
+    # Remove rows where both email and phone are None
+    mapped_data = mapped_data.dropna(subset=['phone'], how='all')    
+
+    # Clean the phone column by removing unwanted characters (e.g., '+', "'", spaces)
+    mapped_data['phone'] = (
+        mapped_data['phone']
+        .astype(str)
+        .str.replace(r"[^\d]", "", regex=True)  # Keep only digits
+        .str.strip()
+    )    
+
+    return mapped_data
+
+
+def convert_df_to_csv(df):
+    """
+    Converts a DataFrame to a CSV format in memory.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to convert.
+
+    Returns:
+        BytesIO: A buffer containing the CSV data.
+    """
+    output = BytesIO()
+    df.to_csv(output, index=False)
+    output.seek(0)  # Reset buffer position to the beginning
+    return output.getvalue()
+
+
+def preprocess_remarketing_audience(remarketing_df):
+    """
+    Preprocesses the remarketing audience DataFrame to clean and validate data.
+
+    Args:
+        remarketing_df (pd.DataFrame): The input remarketing audience DataFrame.
+
+    Returns:
+        pd.DataFrame: A cleaned DataFrame with only valid rows.
+    """
+    # Ensure only relevant columns are retained
+    remarketing_df = remarketing_df[['phone', 'fn', 'ln']]
+
+    # Remove rows where both email and phone are None
+    remarketing_df = remarketing_df.dropna(subset=['phone'], how='all')
+
+    # Clean phone numbers by removing unwanted characters (e.g., '+', "'", spaces)
+    remarketing_df['phone'] = (
+        remarketing_df['phone']
+        .astype(str)
+        .str.replace(r"[^\d]", "", regex=True)  # Keep only digits
+        .str.strip()
+    )
+
+    return remarketing_df
+
+
+def merge_audiences(processed_contacts, remarketing_audience):
+    """
+    Merges the processed contacts with the remarketing audience.
+
+    Args:
+        processed_contacts (pd.DataFrame): The processed contacts DataFrame.
+        remarketing_audience (pd.DataFrame): The processed remarketing audience DataFrame.
+
+    Returns:
+        pd.DataFrame: A merged DataFrame with deduplicated data.
+    """
+    combined_audience = pd.concat([processed_contacts, remarketing_audience], ignore_index=True)
+
+    # Deduplicate based on email and phone
+    combined_audience = combined_audience.drop_duplicates(subset=['phone'], keep='first')
+
+    return combined_audience

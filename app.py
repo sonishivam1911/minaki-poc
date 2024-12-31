@@ -212,16 +212,96 @@
 #     available_columns = [col for col in columns_to_show if col in filtered_products.columns]
 #     st.dataframe(filtered_products[available_columns])
 
-import streamlit as st
+# import streamlit as st
+# from data_layer.zakya_api import get_authorization_url, get_access_token,fetch_organizations
 
-st.title("Welcome to SKU Manager")
-st.markdown(
-    """
-    ## Navigation
-    - **Process CSV**: Upload a CSV and add images for SKUs.
-    - **Create SKUs**: Generate new SKUs and create purchase orders.
-    - **Product Filtering**: Filter and view products.
+# # Streamlit app starts here
+# st.title("Zakya Integration - SKU Manager")
+
+# # Step 1: Check if user is authenticated
+# if "access_token" not in st.session_state:
+#     st.subheader("Login to Zakya")
     
-    Use the sidebar to navigate between pages.
-    """
-)
+#     # Generate authorization URL and prompt user to log in
+#     auth_url = get_authorization_url()
+#     st.markdown(f"[Click here to log in to Zakya]({auth_url})", unsafe_allow_html=True)
+
+#     # Handle callback with authorization code using `st.query_params`
+#     if "code" in st.query_params:
+#         auth_code = st.query_params["code"][0]
+        
+#         try:
+#             tokens = get_access_token(auth_code=auth_code)
+#             print(f"Token is {tokens}")
+#             st.session_state["access_token"] = tokens.get("access_token")
+#             st.session_state["refresh_token"] = tokens.get("refresh_token")
+#             st.success("Successfully logged in!")
+            
+#         except Exception as e:
+#             st.error(f"Error during login: {e}")
+
+# # Step 2: Fetch data after login
+# if "access_token" in st.session_state:
+#     st.subheader("Fetch Inventory Data")
+    
+#     if st.button("Fetch Items"):
+#         try:
+#             # headers = {"Authorization": f"Bearer {st.session_state['access_token']}"}
+#             # response = requests.get(f"https://www.zakya.com/api/v1/inventory/items", headers=headers)
+#             # response.raise_for_status()
+            
+#             inventory_data = fetch_organizations(st.session_state['access_token'])
+            
+#             # Display inventory data (you can process it further as needed)
+#             st.write("Inventory Items:")
+#             st.json(inventory_data)  # Display raw JSON for now
+            
+#         except Exception as e:
+#             st.error(f"Error fetching inventory data: {e}")
+
+
+import streamlit as st
+import requests
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
+
+st.title("Zoho Inventory Integration")
+
+# Constants
+CLIENT_ID = os.getenv("ZAKYA_CLIENT_ID")
+CLIENT_SECRET = os.getenv("ZAKYA_CLIENT_SECRET")
+REDIRECT_URI = os.getenv("ZAKYA_REDIRECT_URI")
+
+# Step 1: Generate Authorization URL
+auth_url = f"https://accounts.zoho.in/oauth/v2/auth?scope=Zakya.FullAccess.all&client_id={CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&access_type=offline"
+st.markdown(f"[Click here to log in and authorize]( {auth_url} )", unsafe_allow_html=True)
+
+# Step 2: Handle Authorization Code Callback
+if "code" in st.query_params:
+    auth_code = st.query_params["code"][0]
+    print(f"Auth code is {auth_code}")
+    
+    # Exchange code for tokens
+    token_url = "https://accounts.zoho.com/oauth/v2/token"
+    payload = {
+        "grant_type": "authorization_code",
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "redirect_uri": REDIRECT_URI,
+        "code": auth_code,
+    }
+    
+    response = requests.post(token_url, data=payload)
+    
+    
+    if response.status_code == 200:
+        tokens = response.json()
+        print(f"Reponse is : {response.json()}")
+        st.success("Authorization successful!")
+        st.write("Access Token:", tokens["access_token"])
+        st.write("Refresh Token:", tokens["refresh_token"])
+    else:
+        st.error(f"Error fetching tokens: {response.text}")
