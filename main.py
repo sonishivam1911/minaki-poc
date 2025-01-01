@@ -590,12 +590,21 @@ def process_images(image_paths, output_dir, sku):
         output_dir (str): Directory to save processed images.
         sku (str): SKU identifier for the product.
     """
+    # Create an output folder for this SKU
+    sku_folder = os.path.join(output_dir, sku)
+    os.makedirs(sku_folder, exist_ok=True)    
+    counter = 1
     for image_path in image_paths:
         processed_path = remove_watermark(image_path, output_dir, sku)
         if processed_path:
-            print(f"Processed and saved: {processed_path}")
+            # Rename the processed image
+            new_name = f"image_{counter}.jpg"
+            new_path = os.path.join(sku_folder, new_name)
+            os.rename(processed_path, new_path)
+            print(f"Processed and renamed: {new_path}")            
         else:
             print(f"Failed to process: {image_path}")
+        counter+= 1
 
 
 def load_customer_data():
