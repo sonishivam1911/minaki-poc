@@ -5,6 +5,7 @@ from PIL import Image
 import os
 from main import process_images
 
+
 # Function to filter unwanted images
 def filter_images(directory):
     """
@@ -41,83 +42,87 @@ def filter_images(directory):
     return valid_images
 
 
-# Streamlit app starts here
-st.title("Process ZIP File and Add Images")
+def edit_images_function():
+    # Streamlit app starts here
+    st.title("Process ZIP File and Add Images")
 
-# Step 1: Upload CSV
-uploaded_csv = st.file_uploader("Upload CSV with SKU, Price, Quantity, and Category", type=["csv"])
-if uploaded_csv:
-    # Parse the CSV
-    df = pd.read_csv(uploaded_csv)
-    st.dataframe(df)
-    df["SKU"] = df["SKU"].str.replace("/", "-", regex=False)
-    st.success("Replaced '/' with '-' in SKUs.")
+    # Step 1: Upload CSV
+    uploaded_csv = st.file_uploader("Upload CSV with SKU, Price, Quantity, and Category", type=["csv"])
+    if uploaded_csv:
+        # Parse the CSV
+        df = pd.read_csv(uploaded_csv)
+        st.dataframe(df)
+        df["SKU"] = df["SKU"].str.replace("/", "-", regex=False)
+        st.success("Replaced '/' with '-' in SKUs.")
 
-    # Step 2: Upload ZIP file containing images for each SKU
-    output_dir = "processed_images"
-    os.makedirs(output_dir, exist_ok=True)
+        # Step 2: Upload ZIP file containing images for each SKU
+        output_dir = "processed_images"
+        os.makedirs(output_dir, exist_ok=True)
 
 
-    for index, row in df.iterrows():
-        sku = row["SKU"]
-        st.write(f"Upload ZIP file containing images for SKU: {sku}")
-        
-        uploaded_zip = st.file_uploader(f"Upload a ZIP file for SKU: {sku}", type=["zip"], key=f"zip_{sku}")
-        if uploaded_zip:
-            # Save the uploaded ZIP file temporarily
-            temp_zip_path = f"{sku}_uploaded_images.zip"
-            temp_dir = f"{sku}_uploaded_images"
-            try:
-                with open(temp_zip_path, "wb") as f:
-                    f.write(uploaded_zip.getbuffer())
-
-                # Extract the ZIP file into a unique directory per SKU
-                os.makedirs(temp_dir, exist_ok=True)
-                shutil.unpack_archive(temp_zip_path, temp_dir)
-
-                st.success(f"ZIP file extracted successfully for SKU: {sku}")
-
-                # Step 3: Filter unwanted images
-                filtered_images = filter_images(temp_dir)
-                if filtered_images:
-                    st.success(f"Filtered {len(filtered_images)} valid images for SKU: {sku}.")
-                else:
-                    st.warning(f"No valid images found after filtering for SKU: {sku}.")
-
-                # Step 4: Process filtered images
-                if filtered_images:
-                    process_images(filtered_images, output_dir, sku)
-                    st.success(f"Images processed and renamed successfully for SKU: {sku}.")
+        for index, row in df.iterrows():
+            sku = row["SKU"]
+            st.write(f"Upload ZIP file containing images for SKU: {sku}")
             
-            except Exception as e:
-                st.error(f"Error processing ZIP file for SKU {sku}: {e}")
-
-            finally:
-                # Cleanup temporary files after processing this SKU
+            uploaded_zip = st.file_uploader(f"Upload a ZIP file for SKU: {sku}", type=["zip"], key=f"zip_{sku}")
+            if uploaded_zip:
+                # Save the uploaded ZIP file temporarily
+                temp_zip_path = f"{sku}_uploaded_images.zip"
+                temp_dir = f"{sku}_uploaded_images"
                 try:
-                    if os.path.exists(temp_dir):
-                        shutil.rmtree(temp_dir)
-                    if os.path.exists(temp_zip_path):
-                        os.remove(temp_zip_path)
-                except Exception as cleanup_error:
-                    st.error(f"Error during cleanup for SKU {sku}: {cleanup_error}")
-    # Step 5: Download all processed images as a ZIP archive
-    if st.button("Download All Processed Images"):
-        zip_filename = "processed_images.zip"
-        shutil.make_archive("processed_images", "zip", "processed_images")
-        with open(zip_filename, "rb") as zip_file:
-            st.download_button(
-                label="Download Processed Images",
-                data=zip_file,
-                file_name=zip_filename,
-                mime="application/zip"
-            )
+                    with open(temp_zip_path, "wb") as f:
+                        f.write(uploaded_zip.getbuffer())
 
-        # Cleanup all processed files after download
-        try:
-            if os.path.exists("processed_images"):
-                shutil.rmtree("processed_images")
-            if os.path.exists(zip_filename):
-                os.remove(zip_filename)
-        except Exception as e:
-            st.error(f"Error during final cleanup: {e}")
+                    # Extract the ZIP file into a unique directory per SKU
+                    os.makedirs(temp_dir, exist_ok=True)
+                    shutil.unpack_archive(temp_zip_path, temp_dir)
+
+                    st.success(f"ZIP file extracted successfully for SKU: {sku}")
+
+                    # Step 3: Filter unwanted images
+                    filtered_images = filter_images(temp_dir)
+                    if filtered_images:
+                        st.success(f"Filtered {len(filtered_images)} valid images for SKU: {sku}.")
+                    else:
+                        st.warning(f"No valid images found after filtering for SKU: {sku}.")
+
+                    # Step 4: Process filtered images
+                    if filtered_images:
+                        process_images(filtered_images, output_dir, sku)
+                        st.success(f"Images processed and renamed successfully for SKU: {sku}.")
+                
+                except Exception as e:
+                    st.error(f"Error processing ZIP file for SKU {sku}: {e}")
+
+                finally:
+                    # Cleanup temporary files after processing this SKU
+                    try:
+                        if os.path.exists(temp_dir):
+                            shutil.rmtree(temp_dir)
+                        if os.path.exists(temp_zip_path):
+                            os.remove(temp_zip_path)
+                    except Exception as cleanup_error:
+                        st.error(f"Error during cleanup for SKU {sku}: {cleanup_error}")
+        # Step 5: Download all processed images as a ZIP archive
+        if st.button("Download All Processed Images"):
+            zip_filename = "processed_images.zip"
+            shutil.make_archive("processed_images", "zip", "processed_images")
+            with open(zip_filename, "rb") as zip_file:
+                st.download_button(
+                    label="Download Processed Images",
+                    data=zip_file,
+                    file_name=zip_filename,
+                    mime="application/zip"
+                )
+
+            # Cleanup all processed files after download
+            try:
+                if os.path.exists("processed_images"):
+                    shutil.rmtree("processed_images")
+                if os.path.exists(zip_filename):
+                    os.remove(zip_filename)
+            except Exception as e:
+                st.error(f"Error during final cleanup: {e}")
+
+
+edit_images_function()

@@ -260,48 +260,99 @@
 #             st.error(f"Error fetching inventory data: {e}")
 
 
+# import streamlit as st
+# import requests
+# import os
+# from dotenv import load_dotenv
+
+# # Load environment variables from .env
+# load_dotenv()
+
+# st.title("Zoho Inventory Integration")
+
+# # Constants
+# CLIENT_ID = os.getenv("ZAKYA_CLIENT_ID")
+# CLIENT_SECRET = os.getenv("ZAKYA_CLIENT_SECRET")
+# REDIRECT_URI = os.getenv("ZAKYA_REDIRECT_URI")
+
+# # Step 1: Generate Authorization URL
+# auth_url = f"https://accounts.zoho.in/oauth/v2/auth?scope=Zakya.FullAccess.all&client_id={CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&access_type=offline"
+# st.markdown(f"[Click here to log in and authorize]( {auth_url} )", unsafe_allow_html=True)
+
+# # Step 2: Handle Authorization Code Callback
+# if "code" in st.query_params:
+#     auth_code = st.query_params["code"][0]
+#     print(f"Auth code is {auth_code}")
+    
+#     # Exchange code for tokens
+#     token_url = "https://accounts.zoho.com/oauth/v2/token"
+#     payload = {
+#         "grant_type": "authorization_code",
+#         "client_id": CLIENT_ID,
+#         "client_secret": CLIENT_SECRET,
+#         "redirect_uri": REDIRECT_URI,
+#         "code": auth_code,
+#     }
+    
+#     response = requests.post(token_url, data=payload)
+    
+    
+#     if response.status_code == 200:
+#         tokens = response.json()
+#         print(f"Reponse is : {response.json()}")
+#         st.success("Authorization successful!")
+#         st.write("Access Token:", tokens["access_token"])
+#         st.write("Refresh Token:", tokens["refresh_token"])
+#     else:
+#         st.error(f"Error fetching tokens: {response.text}")
+
+
 import streamlit as st
-import requests
-import os
-from dotenv import load_dotenv
+import pandas as pd
+from utils.postgres_connector import crud
 
-# Load environment variables from .env
-load_dotenv()
+# Initialize session state variables
+if "is_authenticated" not in st.session_state:
+    st.session_state["is_authenticated"] = False
+    st.session_state["username"] = None
 
-st.title("Zoho Inventory Integration")
-
-# Constants
-CLIENT_ID = os.getenv("ZAKYA_CLIENT_ID")
-CLIENT_SECRET = os.getenv("ZAKYA_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("ZAKYA_REDIRECT_URI")
-
-# Step 1: Generate Authorization URL
-auth_url = f"https://accounts.zoho.in/oauth/v2/auth?scope=Zakya.FullAccess.all&client_id={CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&access_type=offline"
-st.markdown(f"[Click here to log in and authorize]( {auth_url} )", unsafe_allow_html=True)
-
-# Step 2: Handle Authorization Code Callback
-if "code" in st.query_params:
-    auth_code = st.query_params["code"][0]
-    print(f"Auth code is {auth_code}")
+def login_page():
+    """Login page for user authentication."""
+    st.title("Login")
     
-    # Exchange code for tokens
-    token_url = "https://accounts.zoho.com/oauth/v2/token"
-    payload = {
-        "grant_type": "authorization_code",
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
-        "redirect_uri": REDIRECT_URI,
-        "code": auth_code,
-    }
-    
-    response = requests.post(token_url, data=payload)
-    
-    
-    if response.status_code == 200:
-        tokens = response.json()
-        print(f"Reponse is : {response.json()}")
-        st.success("Authorization successful!")
-        st.write("Access Token:", tokens["access_token"])
-        st.write("Refresh Token:", tokens["refresh_token"])
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        # Use PostgresCRUD's authenticate_user method for validation
+        if crud.authenticate_user(username, password):
+            st.session_state["is_authenticated"] = True
+            st.session_state["username"] = username
+            st.success("Login successful!")
+            st.rerun()  # Reload the app after login success
+        else:
+            st.error("Invalid username or password.")
+
+def logout():
+    """Logout functionality."""
+    if st.button("Logout"):
+        st.session_state["is_authenticated"] = False
+        st.session_state["username"] = None
+        st.rerun()
+
+def main():
+    """Main application logic."""
+    if not st.session_state.get("is_authenticated"):
+        login_page()
     else:
-        st.error(f"Error fetching tokens: {response.text}")
+        # Sidebar navigation
+        st.sidebar.title(f"Welcome, {st.session_state['username']}!")
+        logout()
+        
+        page = st.sidebar.radio(
+            "Select Option",
+            ["Upload Product Master", "Upload Customer Master", "Upload SKU Vendor Mapping"]
+        )
+
+
+main()

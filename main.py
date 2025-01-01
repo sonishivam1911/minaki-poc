@@ -10,7 +10,7 @@ import cv2
 import math
 from io import BytesIO
 
-from data_layer.postgres_connector import crud
+from utils.postgres_connector import crud
 
 # Set up logging
 logging.basicConfig(
