@@ -50,6 +50,8 @@ if uploaded_csv:
     # Parse the CSV
     df = pd.read_csv(uploaded_csv)
     st.dataframe(df)
+    df["SKU"] = df["SKU"].str.replace("/", "-", regex=False)
+    st.success("Replaced '/' with '-' in SKUs.")
 
     # Step 2: Upload ZIP file containing images for each SKU
     output_dir = "processed_images"
