@@ -342,17 +342,17 @@ def logout():
 
 def main():
     """Main application logic."""
-    if not st.session_state.get("is_authenticated"):
-        login_page()
-    else:
+    # if not st.session_state.get("is_authenticated"):
+    #     login_page()
+    # else:
         # Sidebar navigation
-        st.sidebar.title(f"Welcome, {st.session_state['username']}!")
-        logout()
-        
-        page = st.sidebar.radio(
-            "Select Option",
-            ["Upload Product Master", "Upload Customer Master", "Upload SKU Vendor Mapping"]
-        )
+    st.sidebar.title("Data Refresh")
+    logout()
+    
+    page = st.sidebar.radio(
+        "Select Option",
+        ["Upload Product Master", "Upload Customer Master", "Upload SKU Vendor Mapping"]
+    )
 
 
 main()

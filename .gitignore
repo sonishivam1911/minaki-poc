@@ -1,0 +1,9 @@
+/venv/
+/uploaded_images/
+__pycache__/
+
+
+
+*.env
+.DS_Store
+*.log

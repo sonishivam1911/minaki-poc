@@ -555,14 +555,43 @@ def remove_watermark(image_path, output_dir, sku):
             (454, 837, 900, 897)  # Bottom-right region for website URL
         ]
 
-        mask = np.zeros(image.shape[:2], dtype=np.uint8)  # Mask for inpainting
+        mask = np.zeros((height, width), dtype=np.uint8)
 
-        # Create mask for watermark regions
         for x1, y1, x2, y2 in watermark_regions:
+            # Ensure these coords are in valid range
+            x1 = max(0, x1); y1 = max(0, y1)
+            x2 = min(width, x2); y2 = min(height, y2)
             mask[y1:y2, x1:x2] = 255
 
-        # Inpaint to remove watermark
-        inpainted_image = cv2.inpaint(image, mask, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+        # --- 4. OPTIONAL: REFINE THE MASK (MORPHOLOGICAL OPERATION) ---
+        # This step can help tighten the mask to cover *only* the letters or exact watermark area
+        # so that less background is disturbed. Adjust kernel size & iterations as needed.
+        
+        # kernel = np.ones((3,3), np.uint8)
+        # # Erode the mask to remove ~1 pixel from the boundaries
+        # mask = cv2.erode(mask, kernel, iterations=1)
+
+        # --- 5. INPAINT TO REMOVE WATERMARK ---
+        # Try adjusting inpaintRadius (3, 5, 7, etc.) to see which works best
+        # Also try switching between cv2.INPAINT_TELEA and cv2.INPAINT_NS
+        inpainted_image = cv2.inpaint(image, mask, inpaintRadius=5, flags=cv2.INPAINT_NS)
+
+        # --- 6. (OPTIONAL) TWO-PASS INPAINTING ---
+        # If you still see small smudges left, you can do a second pass.
+        # For demonstration, let's do it with a *different* inpainting method or radius.
+        #
+        # For the second pass, you might create a new mask specifically for leftover smudges,
+        # or simply reuse the same mask to see if it cleans up further.
+        
+        # inpainted_image = cv2.inpaint(inpainted_image, mask, inpaintRadius=3, flags=cv2.INPAINT_NS)
+
+        # --- 7. (OPTIONAL) POST-PROCESS CORNERS (GAUSSIAN BLUR) ---
+        # If there is slight smudging in corners only, you can selectively blur those corners.
+        # For example, top-left corner region:
+        # corner_mask = np.zeros_like(inpainted_image)
+        # corner_mask[0:30, 0:30] = 255  # Adjust as needed
+        # blurred_corner = cv2.GaussianBlur(inpainted_image[0:30, 0:30], (5,5), sigmaX=0)
+        # inpainted_image[0:30, 0:30] = blurred_corner
 
         os.makedirs(output_dir, exist_ok=True)
 
