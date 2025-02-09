@@ -7,7 +7,7 @@ from utils.auth_decorator import require_auth
 
 
 
-@require_auth
+
 def validate_equation(equation, column_types):
     """Validate if all variables in equation are valid and their types are compatible."""
     try:
@@ -21,14 +21,14 @@ def validate_equation(equation, column_types):
     except Exception as e:
         return False, str(e)
 
-@require_auth
+
 def parse_variables(equation):
     """Extract unique variables from an equation string."""
     tokens = equation.replace(" ", "").split("+-*/()")
     return [token for token in set(tokens) if token.isalpha()]
 
 
-@require_auth
+
 def linesheet_generator_function():
     # Streamlit App
     st.title("Dynamic Column Mapping and Derived Logic Handling")

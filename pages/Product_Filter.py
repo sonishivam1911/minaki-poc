@@ -3,7 +3,7 @@ import pandas as pd
 from main import filter_existing_products, load_and_rename_master
 from utils.auth_decorator import require_auth
 
-@require_auth  # Enforce authentication on this page
+  # Enforce authentication on this page
 def product_filter_function():
 
     st.title("Product Filtering")

@@ -3,7 +3,7 @@ import pandas as pd
 from utils.postgres_connector import crud
 from utils.auth_decorator import require_auth
 
-@require_auth  # Enforce authentication on this page
+  # Enforce authentication on this page
 def refresh_master_function():
 
     # Set page configuration
