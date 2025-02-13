@@ -706,7 +706,9 @@ def process_taj_sales(taj_sales_df,invoice_date):
 
     logger.debug(f"Loaded product master with shape: {product_master_df.shape}")
     logger.debug(f"Extracted {len(existing_skus)} existing SKUs for processing.")    
-    # print(f"Extracted {len(set(existing_skus))} existing SKUs for processing.")  
+    # print(f"Extracted {len(set(existing_skus))} existing SKUs for processing.")
+
+    print(f"Taj CSV Colmn names are :{taj_sales_df.columns}")  
 
     taj_sales_df["Style"]=taj_sales_df["Style"].astype(str) 
     taj_sales_df['Rounded_Total'] = taj_sales_df['Total'].apply(lambda x: math.ceil(x) if x - int(x) >= 0.5 else math.floor(x))    
@@ -723,7 +725,11 @@ def process_taj_sales(taj_sales_df,invoice_date):
         branch_name = row.get("Branch Name","")
         item_department = row.get("Item Department","")
         customer_data = fetch_customer_row(customer_master_df,branch_name)
-        # print(f"Customer Data is {branch_name}")
+        print(f"Customer Data is {customer_data}")
+        
+        if "error" in customer_data:
+            if "Goa" in branch_name:
+                customer_data['Place of Supply'] = "GA"
 
         # Derived fields
         item_desc = ""
@@ -743,6 +749,7 @@ def process_taj_sales(taj_sales_df,invoice_date):
             tax_group = "IGST 3" if customer_data["Place of Supply"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
 
         item_tax_type = "ItemAmount"
+        
         if customer_data["Place of Supply"] == "DL":
             item_tax_type = "Tax Group"
         
