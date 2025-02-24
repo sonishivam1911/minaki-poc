@@ -98,19 +98,31 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
     }
     
     params = {
-        'organization_id': organization_id
+        'organization_id': organization_id,
+        'page' : 1,
+        'per_page' : 50
     }
         
     headers = {"Authorization": f"Zoho-oauthtoken {access_token}",}
-    print(f"headers is {headers}")
-    response = requests.get(
-        url=url,
-        headers=headers,
-        params=params
-    )
-    print(f"Response is {response}")
-    response.raise_for_status()
-    return response.json()
+    all_data=[]
+    while True:
+        response = requests.get(
+            url=url,
+            headers=headers,
+            params=params
+        )
+        response.raise_for_status()
+        data = response.json()
+        page_context = data.get('page_context',{})
+        print(page_context)
+        all_data.append(data)
+
+        if not page_context['has_more_page']:
+            return all_data
+        
+        params['page'] = page_context['page'] + 1
+    
+    return all_data
 
 
 def fetch_organizations(base_url,access_token):
@@ -124,7 +136,6 @@ def fetch_organizations(base_url,access_token):
     }
     
     try:
-        print(f"access token is {access_token}")
         response = requests.get(url, headers=headers)
         response.raise_for_status()  # Raise an error for HTTP codes 4xx/5xx
         return response.json()
