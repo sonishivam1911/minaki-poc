@@ -70,3 +70,5 @@ wcwidth
 xlrd
 xlwt
 yarl
+pydantic
+ShopifyAPI
