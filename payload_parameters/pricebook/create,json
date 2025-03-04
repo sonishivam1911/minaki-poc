@@ -1,0 +1,15 @@
+{
+    "name": "Price List 1",
+    "description": "Flash sale",
+    "currency_id": 982000000000190,
+    "pricebook_type": "fixed_percentage",
+    "is_increase": true,
+    "rounding_type": "round_to_dollar_minus_01",
+    "pricebook_items": [
+        {
+            "item_id": 17775000000227648,
+            "pricebook_rate": 22
+        }
+    ],
+    "sales_or_purchase_type": "sales"
+}

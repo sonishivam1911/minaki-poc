@@ -1,0 +1,4 @@
+{
+    "can_send_in_mail": true,
+    "attachment": "base64_encoded_file_data"
+}

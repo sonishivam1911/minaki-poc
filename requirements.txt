@@ -72,3 +72,5 @@ xlwt
 yarl
 pydantic
 ShopifyAPI
+dotenv
+requests

@@ -753,9 +753,6 @@ def process_taj_sales(taj_sales_df,invoice_date):
         if customer_data["Place of Supply"] == "DL":
             item_tax_type = "Tax Group"
         
-
-
-
         # Static fields
         invoice_number = row.get("Br")
         template_name = "Taj"
@@ -763,11 +760,8 @@ def process_taj_sales(taj_sales_df,invoice_date):
         gst_treatment = "business_gst"
         terms_conditions = "Thanks for your business!"
         payment_terms_label = "Net 30"
-
-        # Calculate due date by adding payment terms to the invoice date
-        payment_terms = customer_data.get("Payment Terms", 0)  # Default to 0 if not available
-        due_date = (invoice_date + pd.Timedelta(days=int(payment_terms))).strftime("%y-%m-%d")        
-
+      
+        item_tax_perc = row.get("Tax Name", 0) * 100
         invoice_data.append({
             "Invoice Date": invoice_date.strftime("%Y-%m-%d") ,
             "Invoice Number": invoice_number,
@@ -786,7 +780,7 @@ def process_taj_sales(taj_sales_df,invoice_date):
             "Is Inclusive Tax": "TRUE",
             "Discount(%)": 0,
             "Item Tax": tax_group,
-            "Item Tax %": f"{row.get("Tax Name", 0) * 100}",
+            "Item Tax %": {item_tax_perc},
             "Item Tax Type": item_tax_type,
             "HSN/SAC": hsn_code,
             "Payment Terms Label": payment_terms_label,

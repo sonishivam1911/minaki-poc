@@ -1,0 +1,8 @@
+{
+    "to_mail_ids": [
+        "willsmith@bowmanfurniture.com"
+    ],
+    "subject": "Welcome to Zillium Inc .",
+    "body": "Dear Customer,     We have attached with this email a list of all your transactions with us for the period 01 Sep 2013 to 30 Sep 2013. You can write to us or call us if you need any assistance or clarifications.     Thanks for your business.RegardsZillium Inc",
+    "attachments": "string"
+}

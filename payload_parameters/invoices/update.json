@@ -1,0 +1,32 @@
+{
+    "invoice_number": "INV-00003",
+    "date": "2025-03-05",
+    "due_date": "2025-03-15",
+    "reference_number": "REF-INV-00003-Updated",
+    "discount": 10.00,
+    "is_discount_before_tax": true,
+    "discount_type": "entity_level",
+    "exchange_rate": 1.0,
+    "line_items": [
+        {
+            "line_item_id": 982000000567021,
+            "item_id": 982000000030049,
+            "name": "Hard Drive",
+            "description": "Updated Hard Drive - 1TB, USB 3.0",
+            "rate": 150.00,
+            "quantity": 1,
+            "unit": "pcs",
+            "tax_id": 982000000557028,
+            "tax_name": "VAT",
+            "tax_percentage": 12.5,
+            "item_total": 150.00
+        }
+    ],
+    "shipping_charge": 10.00,
+    "adjustment": 5.00,
+    "adjustment_description": "Extra handling charge",
+    "notes": "Updated invoice details",
+    "terms": "Updated return policy applies",
+    "gst_no": "22AAAAA0000A1Z5",
+    "gst_treatment": "business_gst"
+}

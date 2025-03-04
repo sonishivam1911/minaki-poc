@@ -1,0 +1,9 @@
+{
+    "invoice_ids": ["INV-00003", "INV-00004"],
+    "send_from_org_email_id": false,
+    "to_mail_ids": ["customer@example.com"],
+    "cc_mail_ids": ["finance@example.com"],
+    "bcc_mail_ids": ["admin@example.com"],
+    "subject": "Multiple Invoices from XYZ Corp",
+    "body": "Dear Customer,\n\nPlease find attached invoices.\n\nBest Regards,\nXYZ Corp"
+}
