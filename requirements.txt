@@ -74,3 +74,4 @@ pydantic
 ShopifyAPI
 dotenv
 requests
+pdfplumber
