@@ -669,8 +669,9 @@ def preprocess_taj_sales_report(taj_sales_df):
     
     # First pass: Identify missing products and sales orders
     for _, row in taj_sales_df.iterrows():
-        style = row.get("Style", "").strip()
-        salesorder_number = row.get("PartyDoc No", "")
+        style = row.get("Style", "").strip().split("/")[0]
+        salesorder_number = row.get("PartyDoc No", "").split(" ")[-1]
+        logger.debug(f"sku is {style} and sales order number is {salesorder_number}")
         
         items_data = find_missing_products(style)
         salesorder_data = find_missing_salesorder(salesorder_number)
@@ -686,7 +687,7 @@ def preprocess_taj_sales_report(taj_sales_df):
             missing_sales_orders.append(salesorder_number)    
 
     logger.debug(f"missing_products is {missing_products}")
-    logger.debug(f"existing_products is {missing_products}")
+    logger.debug(f"existing_products is {existing_products}")
     logger.debug(f"existing_sales_orders is {existing_sales_orders}")
     logger.debug(f"missing_sales_orders is {missing_sales_orders}")
 
@@ -707,68 +708,68 @@ def process_taj_sales(taj_sales_df,invoice_date,zakya_connection_object):
     taj_sales_df["Style"]=taj_sales_df["Style"].astype(str) 
     taj_sales_df['Rounded_Total'] = taj_sales_df['Total'].apply(lambda x: math.ceil(x) if x - int(x) >= 0.5 else math.floor(x))    
     preprocess_taj_sales_report(taj_sales_df)
-    for _, row in taj_sales_df.iterrows():
-        # print(row)
-        style = row.get("Style", "").strip()
-        print_name = row.get("PrintName", "")
-        item_name = ""
-        quantity = row.get("Qty", 0)
-        hsn_code = row.get("HSN Code", "")
-        tax_name = row.get("Tax Name", "")
-        total = row.get("Rounded_Total", 0)
-        branch_name = row.get("Branch Name","")
-        item_department = row.get("Item Department","")
-        salesorder_number = row.get("PartyDoc No","")
+    # for _, row in taj_sales_df.iterrows():
+    #     # print(row)
+    #     style = row.get("Style", "").strip()
+    #     print_name = row.get("PrintName", "")
+    #     item_name = ""
+    #     quantity = row.get("Qty", 0)
+    #     hsn_code = row.get("HSN Code", "")
+    #     tax_name = row.get("Tax Name", "")
+    #     total = row.get("Rounded_Total", 0)
+    #     branch_name = row.get("Branch Name","")
+    #     item_department = row.get("Item Department","")
+    #     salesorder_number = row.get("PartyDoc No","")
 
-        customer_data = create_whereclause_fetch_data(ZakyaContacts,{
-            customer_mapping_zakya_contacts['branch_name'] : {
-                'op' : 'eq' , 'value' : branch_name
-            }
-            }, queries.fetch_customer_records
-        )
+    #     customer_data = create_whereclause_fetch_data(ZakyaContacts,{
+    #         customer_mapping_zakya_contacts['branch_name'] : {
+    #             'op' : 'eq' , 'value' : branch_name
+    #         }
+    #         }, queries.fetch_customer_records
+    #     )
 
-        salesorder_data = create_whereclause_fetch_data(ZakyaSalesOrder,{
-            salesorder_mapping_zakya['salesorder_number'] : {
-                'op' : 'eq' , 'value' : salesorder_number
-            }
-            }, queries.fetch_salesorderid_record
-        )        
+    #     salesorder_data = create_whereclause_fetch_data(ZakyaSalesOrder,{
+    #         salesorder_mapping_zakya['salesorder_number'] : {
+    #             'op' : 'eq' , 'value' : salesorder_number
+    #         }
+    #         }, queries.fetch_salesorderid_record
+    #     )        
 
 
-        items_data = create_whereclause_fetch_data(ZakyaProducts,{
-            products_mapping_zakya_products['style'] : {
-                'op' : 'eq' , 'value' : style
-            }
-            }, queries.fetch_prodouct_records
-        )
+    #     items_data = create_whereclause_fetch_data(ZakyaProducts,{
+    #         products_mapping_zakya_products['style'] : {
+    #             'op' : 'eq' , 'value' : style
+    #         }
+    #         }, queries.fetch_prodouct_records
+    #     )
 
-        if len(salesorder_data)>0 and len(items_data)>0:
+    #     if len(salesorder_data)>0 and len(items_data)>0:
 
-            logger.debug(f'salesorder data is : {salesorder_data}')
-            logger.debug(f'items data is : {items_data}')
+    #         logger.debug(f'salesorder data is : {salesorder_data}')
+    #         logger.debug(f'items data is : {items_data}')
 
-            # print(f'salesorder data is : {salesorder_data}')
-            # print(f'items data is : {items_data}')
+    #         # print(f'salesorder data is : {salesorder_data}')
+    #         # print(f'items data is : {items_data}')
 
-            item_id = items_data[0]['item_id']
-            salesorder_id = salesorder_data[0]['salesorder_id']
+    #         item_id = items_data[0]['item_id']
+    #         salesorder_id = salesorder_data[0]['salesorder_id']
 
-            logger.debug(f"Customer Data is {customer_data}")
-            logger.debug(f"Items/Product data is : {items_data[0]}")
-            logger.debug(f"Customer data is : {customer_data[0]}")
+    #         logger.debug(f"Customer Data is {customer_data}")
+    #         logger.debug(f"Items/Product data is : {items_data[0]}")
+    #         logger.debug(f"Customer data is : {customer_data[0]}")
 
-            # print(f"Customer Data is {customer_data}")
-            # print(f"Items/Product data is : {items_data[0]}")
-            # print(f"Customer data is : {customer_data[0]}")
+    #         # print(f"Customer Data is {customer_data}")
+    #         # print(f"Items/Product data is : {items_data[0]}")
+    #         # print(f"Customer data is : {customer_data[0]}")
 
-            salesorder_data = fetch_object_for_each_id(
-                zakya_connection_object['base_url'],            
-                zakya_connection_object['access_token'],
-                zakya_connection_object['organization_id'],
-                f'/salesorders/{salesorder_id}'
-            )
+    #         salesorder_data = fetch_object_for_each_id(
+    #             zakya_connection_object['base_url'],            
+    #             zakya_connection_object['access_token'],
+    #             zakya_connection_object['organization_id'],
+    #             f'/salesorders/{salesorder_id}'
+    #         )
 
-            print(f"Sales order details are : {salesorder_data}")
+    #         print(f"Sales order details are : {salesorder_data}")
         
     #     if "error" in customer_data:
     #         if "Goa" in branch_name:
