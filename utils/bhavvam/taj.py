@@ -5,15 +5,22 @@ from collections import defaultdict
 from utils.zakya_api import create_item_group, create_sales_order, fetch_sales_order, create_invoice
 from utils.postgres_connector import crud
 
-def process_taj_sales(taj_sales_df, invoice_date, access_token, organization_id):
+def process_taj_sales(taj_sales_df, invoice_date, base_url, access_token, organization_id):
     # Step 1: Load all mapping tables
     mapping_product = crud.read_table("mapping__product")
     mapping_order = crud.read_table("mapping__order")
     mapping_partner = crud.read_table("mapping__partner")
-
+    print(mapping_product)
     # Step 2: Prepare lookup sets
-    existing_skus = set(mapping_product["SKU"].dropna().astype(str))
-    existing_sales_orders = set(mapping_order["salesorder_number"].dropna().astype(str))
+    if isinstance(mapping_product, str):
+        import json
+        mapping_product = json.loads(mapping_product)  # Convert JSON string to dict
+
+    if isinstance(mapping_product, dict):
+        mapping_product = pd.DataFrame(mapping_product.get("items", []))  # Adjust based on API response
+
+    existing_skus = set(mapping_product["SKU"].astype(str).dropna())
+    existing_sales_orders = set(mapping_order["salesorder_number"].astype(str).dropna())
     
     sales_orders_payload = defaultdict(list)
     invoices_payload = defaultdict(lambda: {"line_items": []})
@@ -59,7 +66,7 @@ def process_taj_sales(taj_sales_df, invoice_date, access_token, organization_id)
                     "sku": sku
                 }]
             }
-            response = create_item_group(access_token, organization_id, product_data)
+            response = create_item_group(base_url, access_token, organization_id, product_data)
             item_id = response.get("item_id")
             existing_skus.add(sku)
             sku_to_item_id[sku] = item_id
@@ -81,9 +88,9 @@ def process_taj_sales(taj_sales_df, invoice_date, access_token, organization_id)
             "date": party_doc_dt.strftime("%Y-%m-%d"),
             "line_items": line_items
         }
-        create_sales_order(access_token, organization_id, payload)
+        create_sales_order(base_url, access_token, organization_id, payload)
     
-    all_sales_orders = fetch_sales_order(access_token, organization_id)
+    all_sales_orders = fetch_sales_order(base_url, access_token, organization_id)
     salesorder_map = {order["salesorder_number"]: order["salesorder_id"] for order in all_sales_orders}
     item_sales_map = {}
     for order in all_sales_orders:
@@ -146,7 +153,7 @@ def process_taj_sales(taj_sales_df, invoice_date, access_token, organization_id)
             "gst_treatment": "business_gst",
             "template_name": "Taj"
         }
-        invoice_response = create_invoice(access_token, organization_id, invoice_payload)
+        invoice_response = create_invoice(base_url, access_token, organization_id, invoice_payload)
         invoice_summary.append({
             "invoice_id": invoice_response.get("invoice_id"),
             "invoice_number": invoice_response.get("invoice_number"),
