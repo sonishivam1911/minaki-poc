@@ -1,7 +1,7 @@
 import streamlit as st
 import io
 import pandas as pd
-from main import process_taj_sales
+from server.taj import process_taj_sales
 
 st.title("Taj Sales Invoice Generator")
 
@@ -18,7 +18,11 @@ if uploaded_file:
 
     # Process the DataFrame
     if st.button("Generate Invoice"):
-        invoice_template = process_taj_sales(taj_sales_df,invoice_date)
+        invoice_template = process_taj_sales(taj_sales_df,invoice_date,{
+            'base_url' : st.session_state['api_domain'],
+            'access_token' : st.session_state['access_token'],
+            'organization_id' : st.session_state['organization_id']
+        })
 
         # Display processed DataFrame
         st.subheader("Processed Invoice Template")

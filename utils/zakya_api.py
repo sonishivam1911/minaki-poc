@@ -100,7 +100,7 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
     params = {
         'organization_id': organization_id,
         'page' : 1,
-        'per_page' : 50
+        'per_page' : 200
     }
         
     headers = {"Authorization": f"Zoho-oauthtoken {access_token}",}
@@ -135,6 +135,7 @@ def fetch_organizations(base_url,access_token):
         "Content-Type": "application/json"
     }
     
+    
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()  # Raise an error for HTTP codes 4xx/5xx
@@ -143,3 +144,54 @@ def fetch_organizations(base_url,access_token):
         print(f"Exception is : {e}")
         return None
     
+
+def fetch_object_for_each_id(base_url,access_token,organization_id,endpoint):
+    """
+    Fetch organizations from Zoho Inventory API.
+    """
+    url = f"{base_url}/inventory/v1{endpoint}"
+    
+    headers = {
+        'Authorization': f"Zoho-oauthtoken {access_token}",
+        'Content-Type': 'application/json'
+    }
+
+    params = {
+        'organization_id': organization_id
+    }    
+    
+    try:
+        response = requests.get(url, headers=headers,params=params)
+        response.raise_for_status()  # Raise an error for HTTP codes 4xx/5xx
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Exception is : {e}")
+        return None
+    
+
+def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payload):
+    """
+    Send a POST request to Zakya API to create a new record.
+    
+    :param base_url: Base URL of the Zakya API.
+    :param access_token: OAuth access token for authentication.
+    :param organization_id: ID of the organization in Zakya.
+    :param endpoint: API endpoint for the request (e.g., "/invoices").
+    :param payload: Dictionary containing the data to be sent in the request.
+    :return: JSON response from the API.
+    """
+    url = f"{base_url}/inventory/v1{endpoint}?organization_id={organization_id}"
+    
+    headers = {
+        'Authorization': f"Zoho-oauthtoken {access_token}",
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.post(
+        url=url,
+        headers=headers,
+        json=payload
+    )
+    print(response.text)
+    response.raise_for_status()  # Raise an error for bad responses
+    return response.json() 

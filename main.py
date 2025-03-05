@@ -1,7 +1,6 @@
 import pandas as pd
 import xlrd
 import os
-import logging
 import re
 from dotenv import load_dotenv
 import io
@@ -11,95 +10,30 @@ import math
 from io import BytesIO
 
 from utils.postgres_connector import crud
-
-# Set up logging
-logging.basicConfig(
-    level=logging.ERROR,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("process_logs.log"),
-        logging.StreamHandler()
-    ]
+from config.logger import logger
+from schema.zakya_schemas.schema import ZakyaContacts, ZakyaSalesOrder, ZakyaProducts
+from utils.zakya_api import fetch_object_for_each_id, post_record_to_zakya
+from queries.zakya import queries
+from config.constants import (
+    customer_mapping_zakya_contacts
+    ,salesorder_mapping_zakya
+    ,products_mapping_zakya_products
+    ,column_rename_map
 )
-logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
 
 
 # Define a column rename map for the product master CSV
-COLUMN_RENAME_MAP = {
-    "Item ID": "Item_ID",
-    "Item Name": "Item_Name",
-    "Sales Description": "Sales_Description",
-    "Selling Price": "Selling_Price",
-    "Sales Account": "Sales_Account",
-    "Is Returnable Item": "Is_Returnable_Item",
-    "Brand": "Brand",
-    "Manufacturer": "Manufacturer",
-    "Package Weight": "Package_Weight",
-    "Package Length": "Package_Length",
-    "Package Width": "Package_Width",
-    "Package Height": "Package_Height",
-    "Is Receivable Service": "Is_Receivable_Service",
-    "Taxable": "Taxable",
-    "Exemption Reason": "Exemption_Reason",
-    "Product Type": "Product_Type",
-    "Source": "Source",
-    "Reference ID": "Reference_ID",
-    "Last Sync Time": "Last_Sync_Time",
-    "Status": "Status",
-    "Unit": "Unit",
-    "SKU": "SKU",
-    "HSN/SAC": "HSN_SAC",
-    "UPC": "UPC",
-    "EAN": "EAN",
-    "ISBN": "ISBN",
-    "Part Number": "Part_Number",
-    "Purchase Price": "Purchase_Price",
-    "Purchase Account": "Purchase_Account",
-    "Purchase Description": "Purchase_Description",
-    "MRP": "MRP",
-    "Inventory Account": "Inventory_Account",
-    "Track Batches": "Track_Batches",
-    "Reorder Level": "Reorder_Level",
-    "Preferred Vendor": "Preferred_Vendor",
-    "Warehouse Name": "Warehouse_Name",
-    "Opening Stock": "Opening_Stock",
-    "Opening Stock Value": "Opening_Stock_Value",
-    "Stock On Hand": "Stock_On_Hand",
-    "Is Combo Product": "Is_Combo_Product",
-    "Item Type": "Item_Type",
-    "Category Name": "Category_Name",
-    "Batch Reference#": "Batch_Reference_No",
-    "Manufacturer Batch#": "Manufacturer_Batch_No",
-    "Manufactured Date": "Manufactured_Date",
-    "Expiry Date": "Expiry_Date",
-    "Quantity In": "Quantity_In",
-    "Taxability Type": "Taxability_Type",
-    "Intra State Tax Name": "Intra_State_Tax_Name",
-    "Intra State Tax Rate": "Intra_State_Tax_Rate",
-    "Intra State Tax Type": "Intra_State_Tax_Type",
-    "Inter State Tax Name": "Inter_State_Tax_Name",
-    "Inter State Tax Rate": "Inter_State_Tax_Rate",
-    "Inter State Tax Type": "Inter_State_Tax_Type",
-    "CF.Collection": "CF_Collection",
-    "CF.Serial Number": "CF_Serial_Number",
-    "CF.Gender": "CF_Gender",
-    "CF.Product Description": "CF_Product_Description",
-    "CF.Components": "CF_Components",
-    "CF.Work": "CF_Work",
-    "CF.Finish": "CF_Finish",
-    "CF.Finding": "CF_Finding",
-    "CF.eCommerce Channel": "CF_eCommerce_Channel"
-}
+
 
 def load_and_rename_master(filepath="product_master.csv"):
     try:
         logger.debug(f"Entering load_and_rename_master with filepath: {filepath}")
         df = crud.read_table("product_master")
         logger.debug(f"Loaded product master with shape: {df.shape}")
-        df.rename(columns=COLUMN_RENAME_MAP, inplace=True)
+        df.rename(columns=column_rename_map, inplace=True)
         logger.debug("Renamed columns in product master.")
         return df
     except Exception as e:
@@ -647,16 +581,16 @@ def load_customer_data():
         pd.DataFrame: DataFrame containing customer data.
     """
     try:
-        required_columns = ["Contact Name", "Display Name", "GST Identification Number (GSTIN)","Place of Supply"]
+        required_columns = ["contact_name", "gst_no", "place_of_contact"]
 
-        customer_data_df = crud.read_table("customer_master")
+        customer_data_df = crud.read_table("zakya_contacts")
         customer_data_df = customer_data_df[required_columns]
         return customer_data_df
     except Exception as e:
         raise ValueError(f"Error loading customer data: {e}")
     
 
-def fetch_customer_row(customer_data_df, branch_name):
+def fetch_customer_data(pydantic_model, filter_dict):
     """
     Fetch the row for the specified branch name as a JSON/dict.
 
@@ -669,18 +603,37 @@ def fetch_customer_row(customer_data_df, branch_name):
     """
     try:
         # Filter customer data for the given branch name
-        filtered_row = customer_data_df[
-            (customer_data_df["Contact Name"].str.contains(branch_name, case=False, na=False)) |
-            (customer_data_df["Display Name"].str.contains(branch_name, case=False, na=False))
-        ]
-
-        if not filtered_row.empty:
-            return filtered_row.iloc[0].to_dict()
-        else:
-            return {"error": f"No data found for branch name: {branch_name}"}
+        whereClause=crud.build_where_clause(pydantic_model,filter_dict)
+        query = queries.fetch_customer_records.format(whereClause=whereClause)
+        print(f"query is {query}")
+        data = crud.execute_query(query=query,return_data=True)
+        print(f"data is {data}")
+        return data.to_dict('records')
     except Exception as e:
         return {"error": f"Error fetching row: {e}"}
 
+
+
+def create_whereclause_fetch_data(pydantic_model, filter_dict, query):
+    """
+    Fetch the row for the specified branch name as a JSON/dict.
+
+    Args:
+        customer_data_df (pd.DataFrame): DataFrame containing customer data.
+        branch_name (str): Branch name to filter.
+
+    Returns:
+        dict: Row data as a dictionary.
+    """
+    try:
+        # Filter customer data for the given branch name
+        whereClause=crud.build_where_clause(pydantic_model,filter_dict)
+        formatted_query = query.format(whereClause=whereClause)
+        data = crud.execute_query(query=formatted_query,return_data=True)
+        logger.debug(f"query is {formatted_query} and data is {data}")
+        return data.to_dict('records')
+    except Exception as e:
+        return {"error": f"Error fetching row: {e}"}
 
 
 def fetch_customer_name_list():
@@ -688,117 +641,208 @@ def fetch_customer_name_list():
     return customer_df["Display Name"].unique()
 
 
+def find_missing_products(style):
+    style_cleaned = style.split('/')[0]  # Remove the color option from SKU
+    
+    items_data = create_whereclause_fetch_data(ZakyaProducts, {
+        products_mapping_zakya_products['style']: {'op': 'eq', 'value': style_cleaned}
+    }, queries.fetch_prodouct_records)    
+
+    return items_data
 
 
-def process_taj_sales(taj_sales_df,invoice_date):
+def find_missing_salesorder(salesorder_number):
+    
+    salesorder_data = create_whereclause_fetch_data(ZakyaSalesOrder, {
+        salesorder_mapping_zakya['salesorder_number']: {'op': 'eq', 'value': salesorder_number}
+    }, queries.fetch_salesorderid_record) 
+
+    return salesorder_data
+
+
+def preprocess_taj_sales_report(taj_sales_df):
+
+    existing_products = []
+    missing_products = []
+    existing_sales_orders = []
+    missing_sales_orders = []
+    
+    # First pass: Identify missing products and sales orders
+    for _, row in taj_sales_df.iterrows():
+        style = row.get("Style", "").strip().split("/")[0]
+        salesorder_number = row.get("PartyDoc No", "").split(" ")[-1]
+        logger.debug(f"sku is {style} and sales order number is {salesorder_number}")
+        
+        items_data = find_missing_products(style)
+        salesorder_data = find_missing_salesorder(salesorder_number)
+        
+        if items_data:
+            existing_products.append(style)
+        else:
+            missing_products.append(style)
+        
+        if salesorder_data:
+            existing_sales_orders.append(salesorder_number)
+        else:
+            missing_sales_orders.append(salesorder_number)    
+
+    logger.debug(f"missing_products is {missing_products}")
+    logger.debug(f"existing_products is {existing_products}")
+    logger.debug(f"existing_sales_orders is {existing_sales_orders}")
+    logger.debug(f"missing_sales_orders is {missing_sales_orders}")
+
+def process_taj_sales(taj_sales_df,invoice_date,zakya_connection_object):
+
+
+    # find all products which exit and which don't 
+    # sku can be - MN1092/CO -- so lets say we get no product for this sku
+    # remove '/' , basically '/' means option like co is copper color 
+    # Find all sales order which exist and dont exist
 
     # Create the final invoice template DataFrame
     invoice_data = []
-
-    # Load product master and extract existing SKUs
-    product_master_df = load_and_rename_master()
-    existing_skus = product_master_df['SKU'].dropna().astype(str)
-    existing_skus = set(existing_skus)
-
-    #load customer master
-    customer_master_df = load_customer_data()
-    
-
-    logger.debug(f"Loaded product master with shape: {product_master_df.shape}")
-    logger.debug(f"Extracted {len(existing_skus)} existing SKUs for processing.")    
-    # print(f"Extracted {len(set(existing_skus))} existing SKUs for processing.")
-
+    # steps - call salesorderid for each partdocnumber -- fetch customer details 
+    #
     print(f"Taj CSV Colmn names are :{taj_sales_df.columns}")  
 
     taj_sales_df["Style"]=taj_sales_df["Style"].astype(str) 
     taj_sales_df['Rounded_Total'] = taj_sales_df['Total'].apply(lambda x: math.ceil(x) if x - int(x) >= 0.5 else math.floor(x))    
+    preprocess_taj_sales_report(taj_sales_df)
+    # for _, row in taj_sales_df.iterrows():
+    #     # print(row)
+    #     style = row.get("Style", "").strip()
+    #     print_name = row.get("PrintName", "")
+    #     item_name = ""
+    #     quantity = row.get("Qty", 0)
+    #     hsn_code = row.get("HSN Code", "")
+    #     tax_name = row.get("Tax Name", "")
+    #     total = row.get("Rounded_Total", 0)
+    #     branch_name = row.get("Branch Name","")
+    #     item_department = row.get("Item Department","")
+    #     salesorder_number = row.get("PartyDoc No","")
 
-    for _, row in taj_sales_df.iterrows():
-        # print(row)
-        style = row.get("Style", "").strip()
-        print_name = row.get("PrintName", "")
-        item_name = ""
-        quantity = row.get("Qty", 0)
-        hsn_code = row.get("HSN Code", "")
-        tax_name = row.get("Tax Name", "")
-        total = row.get("Rounded_Total", 0)
-        branch_name = row.get("Branch Name","")
-        item_department = row.get("Item Department","")
-        customer_data = fetch_customer_row(customer_master_df,branch_name)
-        print(f"Customer Data is {customer_data}")
+    #     customer_data = create_whereclause_fetch_data(ZakyaContacts,{
+    #         customer_mapping_zakya_contacts['branch_name'] : {
+    #             'op' : 'eq' , 'value' : branch_name
+    #         }
+    #         }, queries.fetch_customer_records
+    #     )
+
+    #     salesorder_data = create_whereclause_fetch_data(ZakyaSalesOrder,{
+    #         salesorder_mapping_zakya['salesorder_number'] : {
+    #             'op' : 'eq' , 'value' : salesorder_number
+    #         }
+    #         }, queries.fetch_salesorderid_record
+    #     )        
+
+
+    #     items_data = create_whereclause_fetch_data(ZakyaProducts,{
+    #         products_mapping_zakya_products['style'] : {
+    #             'op' : 'eq' , 'value' : style
+    #         }
+    #         }, queries.fetch_prodouct_records
+    #     )
+
+    #     if len(salesorder_data)>0 and len(items_data)>0:
+
+    #         logger.debug(f'salesorder data is : {salesorder_data}')
+    #         logger.debug(f'items data is : {items_data}')
+
+    #         # print(f'salesorder data is : {salesorder_data}')
+    #         # print(f'items data is : {items_data}')
+
+    #         item_id = items_data[0]['item_id']
+    #         salesorder_id = salesorder_data[0]['salesorder_id']
+
+    #         logger.debug(f"Customer Data is {customer_data}")
+    #         logger.debug(f"Items/Product data is : {items_data[0]}")
+    #         logger.debug(f"Customer data is : {customer_data[0]}")
+
+    #         # print(f"Customer Data is {customer_data}")
+    #         # print(f"Items/Product data is : {items_data[0]}")
+    #         # print(f"Customer data is : {customer_data[0]}")
+
+    #         salesorder_data = fetch_object_for_each_id(
+    #             zakya_connection_object['base_url'],            
+    #             zakya_connection_object['access_token'],
+    #             zakya_connection_object['organization_id'],
+    #             f'/salesorders/{salesorder_id}'
+    #         )
+
+    #         print(f"Sales order details are : {salesorder_data}")
         
-        if "error" in customer_data:
-            if "Goa" in branch_name:
-                customer_data['Place of Supply'] = "GA"
+    #     if "error" in customer_data:
+    #         if "Goa" in branch_name:
+    #             customer_data['Place of Supply'] = "GA"
 
-        # Derived fields
-        item_desc = ""
-        sku=""
-        if style not in existing_skus:
-            item_desc = f"{style} - {print_name}"
-        else:
-            sku = style
-            item_desc = f"{print_name}"
-            item_name = product_master_df[product_master_df["SKU"] == sku].to_dict('records')[0]["Item_Name"]
-            # print(f"item name is {str(item_name)}")
+    #     # Derived fields
+    #     item_desc = ""
+    #     sku=""
+    #     if style not in existing_skus:
+    #         item_desc = f"{style} - {print_name}"
+    #     else:
+    #         sku = style
+    #         item_desc = f"{print_name}"
+    #         item_name = product_master_df[product_master_df["SKU"] == sku].to_dict('records')[0]["Item_Name"]
+    #         # print(f"item name is {str(item_name)}")
 
-        tax_group = ""
-        if item_department == "MENS GARMENT":
-            tax_group = "IGST12" if customer_data["Place of Supply"] != "DL" else "GST12"
-        else:
-            tax_group = "IGST 3" if customer_data["Place of Supply"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
+    #     tax_group = ""
+    #     if item_department == "MENS GARMENT":
+    #         tax_group = "IGST12" if customer_data["place_of_contact"] != "DL" else "GST12"
+    #     else:
+    #         tax_group = "IGST 3" if customer_data["place_of_contact"] != "DL" else "Shopify Tax Group (SGST 1.5 CGST 1.5)"
 
-        item_tax_type = "ItemAmount"
+    #     item_tax_type = "ItemAmount"
         
-        if customer_data["Place of Supply"] == "DL":
-            item_tax_type = "Tax Group"
+    #     if customer_data["place_of_contact"] == "DL":
+    #         item_tax_type = "Tax Group"
         
 
 
 
-        # Static fields
-        invoice_number = row.get("Br")
-        template_name = "Taj"
-        currency_code = "INR"
-        gst_treatment = "business_gst"
-        terms_conditions = "Thanks for your business!"
-        payment_terms_label = "Net 30"
+    #     # Static fields
+    #     invoice_number = row.get("Br")
+    #     template_name = "Taj"
+    #     currency_code = "INR"
+    #     gst_treatment = "business_gst"
+    #     terms_conditions = "Thanks for your business!"
+    #     payment_terms_label = "Net 30"
 
-        # Calculate due date by adding payment terms to the invoice date
-        payment_terms = customer_data.get("Payment Terms", 0)  # Default to 0 if not available
-        due_date = (invoice_date + pd.Timedelta(days=int(payment_terms))).strftime("%y-%m-%d")        
+    #     # Calculate due date by adding payment terms to the invoice date
+    #     payment_terms = customer_data.get("Payment Terms", 0)  # Default to 0 if not available
+    #     due_date = (invoice_date + pd.Timedelta(days=int(payment_terms))).strftime("%y-%m-%d")        
 
-        invoice_data.append({
-            "Invoice Date": invoice_date.strftime("%Y-%m-%d") ,
-            "Invoice Number": invoice_number,
-            "Invoice Status": "Draft",
-            "Customer Name": branch_name,
-            "Template Name": template_name,
-            "Currency Code": currency_code,
-            "Place of Supply": customer_data["Place of Supply"],
-            "GST Treatment": gst_treatment,
-            "GST Identification Number (GSTIN)": customer_data["GST Identification Number (GSTIN)"],
-            "Item Name": item_name,
-            "SKU": sku,
-            "Item Desc": item_desc,
-            "Quantity": quantity,
-            "Item Price": total,
-            "Is Inclusive Tax": "TRUE",
-            "Discount(%)": 0,
-            "Item Tax": tax_group,
-            "Item Tax %": f"{row.get("Tax Name", 0) * 100}",
-            "Item Tax Type": item_tax_type,
-            "HSN/SAC": hsn_code,
-            "Payment Terms Label": payment_terms_label,
-            "Terms & Conditions": terms_conditions,
-            "Item Type": "goods",
-        })
+    #     invoice_data.append({
+    #         "Invoice Date": invoice_date.strftime("%Y-%m-%d") ,
+    #         "Invoice Number": invoice_number,
+    #         "Invoice Status": "Draft",
+    #         "Customer Name": branch_name,
+    #         "Template Name": template_name,
+    #         "Currency Code": currency_code,
+    #         "Place of Supply": customer_data["Place of Supply"],
+    #         "GST Treatment": gst_treatment,
+    #         "GST Identification Number (GSTIN)": customer_data["GST Identification Number (GSTIN)"],
+    #         "Item Name": item_name,
+    #         "SKU": sku,
+    #         "Item Desc": item_desc,
+    #         "Quantity": quantity,
+    #         "Item Price": total,
+    #         "Is Inclusive Tax": "TRUE",
+    #         "Discount(%)": 0,
+    #         "Item Tax": tax_group,
+    #         "Item Tax %": f"{row.get("Tax Name", 0) * 100}",
+    #         "Item Tax Type": item_tax_type,
+    #         "HSN/SAC": hsn_code,
+    #         "Payment Terms Label": payment_terms_label,
+    #         "Terms & Conditions": terms_conditions,
+    #         "Item Type": "goods",
+    #     })
 
-        logger.debug(f"For the row : {row} the invoice list is {invoice_data}")
+    #     logger.debug(f"For the row : {row} the invoice list is {invoice_data}")
 
-    # Create a DataFrame for the final invoice
-    invoice_df = pd.DataFrame(invoice_data)
-    return invoice_df      
+    # # Create a DataFrame for the final invoice
+    # invoice_df = pd.DataFrame(invoice_data)
+    return None      
 
 
 
@@ -813,7 +857,7 @@ def process_aza_sales(aza_sales_df,invoice_date,customer_name):
 
     #load customer master
     customer_master_df = load_customer_data()
-    customer_data = fetch_customer_row(customer_master_df,customer_name)
+    customer_data = fetch_customer_data(customer_master_df,customer_name)
     # Initialize the invoice data
     invoice_data = []
 

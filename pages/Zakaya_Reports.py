@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from utils.zakya_api import (get_authorization_url
-    ,fetch_contacts
+    ,fetch_object_for_each_id
     ,fetch_records_from_zakya)
 
 from utils.postgres_connector import crud
@@ -27,10 +27,11 @@ def zakya_integration_function():
         if st.button("Show Contacts"):
             with st.container():
                 st.header("Contacts")
-                contact_data = fetch_contacts(
+                contact_data = fetch_records_from_zakya(
                         st.session_state['api_domain'],
                         st.session_state['access_token'],
-                        st.session_state['organization_id']
+                        st.session_state['organization_id'],
+                        '/contacts'
                     )
                 contacts_record = extract_record_list(contact_data,"contacts")
                 show_preview = st.checkbox("Show/Hide Contacts",value=True)
@@ -126,7 +127,7 @@ def zakya_integration_function():
                 show_preview = st.checkbox("Show/Hide Invoices",value=True)
                 if show_preview:                 
                     invoices_data = pd.DataFrame.from_records(invoices_record)
-                    st.dataframe(invoices_data)
+                    st.dataframe(invoices_data)                   
                     if st.button("Save to Database",on_click=handle_on_click_button, args=(invoices_data,'zakya_invoices')): 
                         st.success("zakya_invoices saved to database successfully!") 
 
@@ -169,6 +170,20 @@ def zakya_integration_function():
     else:
         # Display login button
         fetch_zakya_code()
+
+def display_each_selected_row(invoice_id):
+    details = fetch_object_for_each_id(
+                                api_domain=st.session_state['api_domain'],
+                                access_token=st.session_state['access_token'],
+                                organization_id=st.session_state['organization_id'],
+                                endpoint=f"/invoices/{invoice_id}"
+                            )
+                            
+
+                            # 5. Display the details in an expander (simulating a popup)
+    with st.expander(f"Invoice {invoice_id} Details",expanded=True):
+                                # You can display raw JSON or form a DataFrame if needed
+        st.json(details)
 
 def extract_record_list(input_data,key):
     records = []

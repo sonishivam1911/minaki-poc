@@ -7,15 +7,16 @@ import bcrypt
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
+from config.constants import OPERATORS
+
 # Load environment variables from .env
 load_dotenv()
 
-POSTGRES_URI = os.getenv("POSTGRES_URI")
+POSTGRES_URI = os.getenv("POSTGRES_SESSION_POOL_URI")
 
 class PostgresCRUD:
     def __init__(self):
         self.engine = create_engine(POSTGRES_URI)
-        self.conn = self.engine
         
 
     def create_table(self, table_name, dataframe):
@@ -70,11 +71,16 @@ class PostgresCRUD:
         except Exception as e:
             return f"Error deleting table '{table_name}': {e}"
         
-    def execute_query(self,query):
+    def execute_query(self,query,return_data=False):
         try:
             with self.engine.connect() as connection:
-                connection.execute(text(query))
-            return "Query Executed"
+                if return_data:
+                    cursor_result = connection.execute(text(query))
+                    rows = cursor_result.fetchall()
+                    columns = cursor_result.keys()
+                    return pd.DataFrame(rows, columns=columns)
+                else:
+                    connection.execute(text(query))
         except Exception as e:
             print(f"Error running query : {query} and error : {e}")
         
@@ -226,6 +232,37 @@ class PostgresCRUD:
         # Final CREATE TABLE statement
         create_table_statement = f"CREATE TABLE {table_name} (\n  {',\n  '.join(columns_sql)}{pk_sql}\n);"
         return create_table_statement
+    
+    def build_where_clause(self, model: BaseModel, filters: dict) -> str:
+        valid_columns = model.model_fields.keys()  # Infer table columns from Pydantic model
+        clauses = []
+
+        for column, condition in filters.items():
+            if column not in valid_columns:
+                raise ValueError(f"Invalid column: {column}")
+
+            operator = condition.get("op")
+            value = condition.get("value")
+
+            if operator not in OPERATORS:
+                raise ValueError(f"Invalid operator '{operator}' for column '{column}'")
+
+            sql_operator = OPERATORS[operator]
+
+            # Handling different data types
+            if operator == "in" and isinstance(value, list):
+                formatted_values = ", ".join(f"'{v}'" for v in value)
+                clause = f"{column} {sql_operator} ({formatted_values})"
+            elif operator == "between" and isinstance(value, list) and len(value) == 2:
+                clause = f"{column} {sql_operator} '{value[0]}' AND '{value[1]}'"
+            else:
+                clause = f"{column} {sql_operator} '{value}'"
+
+            clauses.append(clause)
+
+
+        return "WHERE " + " AND ".join(clauses) if len(clauses) > 0 else clause
+
 
 
 crud = PostgresCRUD()        
