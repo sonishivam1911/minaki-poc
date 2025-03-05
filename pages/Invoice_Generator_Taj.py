@@ -1,7 +1,7 @@
 import streamlit as st
 import io
 import pandas as pd
-from main import process_taj_sales
+from server.taj import process_taj_sales
 
 st.title("Taj Sales Invoice Generator")
 

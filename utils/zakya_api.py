@@ -186,12 +186,12 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
         'Authorization': f"Zoho-oauthtoken {access_token}",
         'Content-Type': 'application/json'
     }
-    
+
     response = requests.post(
         url=url,
         headers=headers,
         json=payload
     )
-    
+    print(response.text)
     response.raise_for_status()  # Raise an error for bad responses
-    return response.json()
+    return response.json() 
