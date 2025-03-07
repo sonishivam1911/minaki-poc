@@ -1,0 +1,10 @@
+{
+    "filter_criteria": {
+        "status": "paid",
+        "date_range": {
+            "start_date": "2025-03-01",
+            "end_date": "2025-03-31"
+        }
+    },
+    "file_format": "csv"
+}

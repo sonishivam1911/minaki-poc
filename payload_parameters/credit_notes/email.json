@@ -1,0 +1,8 @@
+{
+    "send_from_org_email_id": false,
+    "to_mail_ids": ["customer@example.com"],
+    "cc_mail_ids": ["finance@example.com"],
+    "bcc_mail_ids": ["admin@example.com"],
+    "subject": "Credit Note CN-00001 from XYZ Corp",
+    "body": "Dear Customer,\n\nYour credit note CN-00001 is attached.\n\nBest Regards,\nXYZ Corp"
+}

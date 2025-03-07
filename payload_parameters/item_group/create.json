@@ -1,0 +1,38 @@
+{
+    "group_name*": "Bags",
+    "brand*": "Brand",
+    "manufacturer": "Bagstore",
+    "unit*": "qty",
+    "description": "description",
+    "tax_id": 4815000000044043,
+    "attribute_name1": "Small",
+    "items": [
+        {
+            "name*": "Bags-small",
+            "rate*": 6,
+            "purchase_rate*": 6,
+            "reorder_level": 5,
+            "initial_stock": 50,
+            "initial_stock_rate": 500,
+            "vendor_id": 4815000000044080,
+            "sku": "SK1234",
+            "upc": 111111111111,
+            "ean": 111111111112,
+            "isbn": 111111111113,
+            "part_number": 111111111114,
+            "attribute_option_name1": "Small"
+        }
+    ],
+    "attributes": [
+        {
+            "id": 4815000000044112,
+            "name": "Bags-small",
+            "options": [
+                {
+                    "id": 4815000000044112,
+                    "name": "Bags-small"
+                }
+            ]
+        }
+    ]
+}

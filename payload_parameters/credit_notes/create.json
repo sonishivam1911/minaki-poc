@@ -1,0 +1,22 @@
+{
+    "customer_id": "903000000567001",
+    "creditnote_number": "CN-00001",
+    "date": "2025-03-10",
+    "reason": "Product return",
+    "line_items": [
+        {
+            "item_id": "903000000030049",
+            "name": "Wireless Mouse",
+            "description": "Ergonomic wireless mouse",
+            "rate": 25.00,
+            "quantity": 2,
+            "unit": "pcs",
+            "tax_id": "903000000557028",
+            "tax_percentage": 5.0,
+            "item_total": 50.00
+        }
+    ],
+    "exchange_rate": 1.0,
+    "notes": "Credit issued for returned items",
+    "terms": "Valid for 90 days"
+}

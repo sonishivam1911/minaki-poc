@@ -1,0 +1,11 @@
+{
+    "package_number": "PA-00001",
+    "date": "2025-03-04",
+    "line_items": [
+        {
+            "so_line_item_id": 504366000000062000,
+            "quantity": 2
+        }
+    ],
+    "notes": "Handle with care"
+}

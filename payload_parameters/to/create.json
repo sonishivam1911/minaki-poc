@@ -1,0 +1,16 @@
+{
+    "transfer_order_number": "TO-00001",
+    "date": "2018-03-23",
+    "from_warehouse_id": 4815000000035003,
+    "to_warehouse_id": 4815000000035003,
+    "line_items": [
+        {
+            "item_id": 4815000000044100,
+            "name": "Laptop-white/15inch/dell",
+            "description": "Just a sample description.",
+            "quantity_transfer": 2,
+            "unit": "qty"
+        }
+    ],
+    "is_intransit_order": false
+}

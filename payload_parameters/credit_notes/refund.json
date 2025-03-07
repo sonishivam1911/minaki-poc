@@ -1,0 +1,8 @@
+{
+    "amount": 50.00,
+    "date": "2025-03-14",
+    "reference_number": "REFUND-0001",
+    "payment_mode": "banktransfer",
+    "bank_charges": 2.00,
+    "notes": "Refund issued via bank transfer"
+}

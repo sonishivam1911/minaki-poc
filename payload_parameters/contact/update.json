@@ -1,0 +1,67 @@
+{
+    "contact_name": "Bowman and Co",
+    "company_name": "Bowman and Co",
+    "payment_terms": 15,
+    "currency_id": 460000000000097,
+    "contact_type": "customer",
+    "website": "www.bowmanfurniture.com",
+    "custom_fields": [
+        {
+            "value": "GBGD078",
+            "index": 1,
+            "label": "VAT ID"
+        }
+    ],
+    "billing_address": {
+        "attention": "Mr.John",
+        "address": "4900 Hopyard Rd",
+        "street2": "Suit 310",
+        "city": "Pleasanton",
+        "state": "CA",
+        "zip": 94588
+    },
+    "shipping_address": {
+        "attention": "Mr.John",
+        "address": "4900 Hopyard Rd",
+        "street2": "Suit 310",
+        "city": "Pleasanton",
+        "state": "CA",
+        "zip": 94588
+    },
+    "contact_persons": [
+        {
+            "salutation": "Mr",
+            "first_name": "Will",
+            "last_name": "Smith",
+            "email": "willsmith@bowmanfurniture.com",
+            "phone": "+1-925-921-9201",
+            "mobile": "+1-4054439562",
+            "is_primary_contact": true
+        }
+    ],
+    "default_templates": {
+        "invoice_template_id": 460000000052069,
+        "invoice_template_name": "Custom Classic",
+        "estimate_template_id": 460000000000179,
+        "estimate_template_name": "Service - Professional",
+        "creditnote_template_id": 460000000000211,
+        "creditnote_template_name": "Fixed Cost - Professional",
+        "invoice_email_template_id": 460000000052071,
+        "invoice_email_template_name": "Custom Invoice Notification",
+        "estimate_email_template_id": 460000000052073,
+        "estimate_email_template_name": "Custom Estimate Notification",
+        "creditnote_email_template_id": 460000000052075,
+        "creditnote_email_template_name": "Custom Credit Note Notification"
+    },
+    "language_code": "en",
+    "notes": "Payment option : Through check",
+    "tax_exemption_id": 11149000000061054,
+    "tax_id": 11149000000061058,
+    "is_taxable": true,
+    "facebook": "zoho",
+    "twitter": "zoho",
+    "place_of_contact": "TN",
+    "gst_no": "22AAAAA0000A1Z5",
+    "gst_treatment": "business_gst",
+    "tax_exemption_code": "string"
+}

@@ -1,0 +1,12 @@
+{
+    "package_number": "PA-00001-Updated",
+    "date": "2025-03-05",
+    "line_items": [
+        {
+            "line_item_id": 504366000000062100,
+            "so_line_item_id": 504366000000062000,
+            "quantity": 3
+        }
+    ],
+    "notes": "Updated package details"
+}

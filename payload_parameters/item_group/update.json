@@ -1,0 +1,37 @@
+{
+    "group_name": "Updated Bags",
+    "brand": "Updated Brand",
+    "manufacturer": "Updated Manufacturer",
+    "unit": "pcs",
+    "description": "Updated description",
+    "tax_id": 4815000000044043,
+    "items": [
+        {
+            "name": "Updated Bags-small",
+            "rate": 7.5,
+            "purchase_rate": 7.0,
+            "reorder_level": 3,
+            "initial_stock": 60,
+            "initial_stock_rate": 600.0,
+            "vendor_id": 4815000000044080,
+            "sku": "SK5678",
+            "upc": 222222222222,
+            "ean": 222222222223,
+            "isbn": "222222222224",
+            "part_number": "222222222225",
+            "attribute_option_name1": "Medium"
+        }
+    ],
+    "attributes": [
+        {
+            "id": 4815000000044112,
+            "name": "Size",
+            "options": [
+                {
+                    "id": 4815000000044114,
+                    "name": "Medium"
+                }
+            ]
+        }
+    ]
+}

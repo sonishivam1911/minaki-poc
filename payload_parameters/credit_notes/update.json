@@ -1,0 +1,22 @@
+{
+    "creditnote_number": "CN-00001-UPDATED",
+    "date": "2025-03-12",
+    "reason": "Updated return reason - Defective product",
+    "line_items": [
+        {
+            "line_item_id": "903000000567021",
+            "item_id": "903000000030049",
+            "name": "Wireless Mouse",
+            "description": "Updated - Ergonomic wireless mouse",
+            "rate": 24.00,
+            "quantity": 1,
+            "unit": "pcs",
+            "tax_id": "903000000557028",
+            "tax_percentage": 5.0,
+            "item_total": 24.00
+        }
+    ],
+    "exchange_rate": 1.0,
+    "notes": "Updated credit note details",
+    "terms": "Valid for 60 days"
+}

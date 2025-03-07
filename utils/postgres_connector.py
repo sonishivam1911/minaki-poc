@@ -197,41 +197,41 @@ class PostgresCRUD:
         return "TEXT"
 
 
-    def create_table_ddl_query(self,model: type[BaseModel], table_name: str) -> str:
-        """
-        Generate a CREATE TABLE statement from a Pydantic model.
+    # def create_table_ddl_query(self,model: type[BaseModel], table_name: str) -> str:
+    #     """
+    #     Generate a CREATE TABLE statement from a Pydantic model.
         
-        Args:
-            model (Type[BaseModel]): The Pydantic model class.
-            table_name (str): Name of the table to create.
+    #     Args:
+    #         model (Type[BaseModel]): The Pydantic model class.
+    #         table_name (str): Name of the table to create.
         
-        Returns:
-            str: A 'CREATE TABLE' statement for PostgreSQL.
-        """
-        columns_sql = []
-        primary_keys = []
+    #     Returns:
+    #         str: A 'CREATE TABLE' statement for PostgreSQL.
+    #     """
+    #     columns_sql = []
+    #     primary_keys = []
 
-        for field_name, field in model.model_fields.items():
-            pg_col_type = self.python_type_to_postgres(field)
+    #     for field_name, field in model.model_fields.items():
+    #         pg_col_type = self.python_type_to_postgres(field)
             
-            # Build the column definition
-            col_def = f"{field_name} {pg_col_type}"
+    #         # Build the column definition
+    #         col_def = f"{field_name} {pg_col_type}"
 
-            # If the field is marked as the primary key
-            if field.field_info.extra.get('primary_key'):
-                primary_keys.append(field_name)
+    #         # If the field is marked as the primary key
+    #         if field.field_info.extra.get('primary_key'):
+    #             primary_keys.append(field_name)
 
-            columns_sql.append(col_def)
+    #         columns_sql.append(col_def)
 
-        # If we have a primary key (single or composite), add it to the SQL
-        pk_sql = ""
-        if primary_keys:
-            pk_cols = ", ".join(primary_keys)
-            pk_sql = f",\n  PRIMARY KEY ({pk_cols})"
+    #     # If we have a primary key (single or composite), add it to the SQL
+    #     pk_sql = ""
+    #     if primary_keys:
+    #         pk_cols = ", ".join(primary_keys)
+    #         pk_sql = f",\n  PRIMARY KEY ({pk_cols})"
 
-        # Final CREATE TABLE statement
-        create_table_statement = f"CREATE TABLE {table_name} (\n  {',\n  '.join(columns_sql)}{pk_sql}\n);"
-        return create_table_statement
+        # # Final CREATE TABLE statement
+        # create_table_statement = f"CREATE TABLE {table_name} (\n  {',\n  '.join(columns_sql)}{pk_sql}\n);"
+        # return create_table_statement
     
     def build_where_clause(self, model: BaseModel, filters: dict) -> str:
         valid_columns = model.model_fields.keys()  # Infer table columns from Pydantic model

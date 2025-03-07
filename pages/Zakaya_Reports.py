@@ -17,8 +17,7 @@ def fetch_zakya_code():
 
 
 def zakya_integration_function():
-    st.title("Zakya Inventory Management")
-
+    st.title("MINAKI Intell")
         # Check if authorization code is present in the URL
     auth_code = st.session_state['code'] if 'code' in st.session_state else None
     access_token = st.session_state['access_token'] if 'access_token' in st.session_state else None

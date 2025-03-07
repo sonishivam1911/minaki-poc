@@ -1,0 +1,8 @@
+{
+    "reason": "Stock audit correction",
+    "warehouse_id": "903000000456123",
+    "adjustment_type": "increase",
+    "quantity_adjusted": 10,
+    "unit": "pcs",
+    "new_stock_level": 30
+}

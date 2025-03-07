@@ -1,0 +1,25 @@
+{
+    "customer_id": "903000000000099",
+    "payment_mode": "cash",
+    "amount": 450.00,
+    "date": "2025-03-10",
+    "reference_number": "PAY-0001",
+    "description": "Payment received for invoice INV-384",
+    "invoices": [
+        {
+            "invoice_id": "90300000079426",
+            "amount_applied": 450.00,
+            "tax_amount_withheld": 0.00
+        }
+    ],
+    "exchange_rate": 1.0,
+    "bank_charges": 5.00,
+    "account_id": "450000000000353",
+    "tax_account_id": "",
+    "custom_fields": [
+        {
+            "label": "Payment Notes",
+            "value": "Paid in full"
+        }
+    ]
+}

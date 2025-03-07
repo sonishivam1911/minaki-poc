@@ -1,0 +1,11 @@
+{
+    "send_from_org_email_id": false,
+    "to_mail_ids": [
+        "customer@example.com"
+    ],
+    "cc_mail_ids": [
+        "finance@example.com"
+    ],
+    "subject": "Invoice from XYZ Corp (Invoice#: INV-00003)",
+    "body": "Dear Customer,\n\nThank you for your business. The invoice INV-00003 is attached with this email.\n\nInvoice Overview:\nInvoice#: INV-00003\nDate: 04 Mar 2025\nAmount: $540.00\n\nPlease make payment before the due date.\n\nRegards,\nXYZ Corp"
+}

@@ -1,0 +1,14 @@
+{
+    "invoice_payments": [
+        {
+            "payment_id": 460000000031003,
+            "amount_applied": 15
+        }
+    ],
+    "apply_creditnotes": [
+        {
+            "creditnote_id": 460000000029003,
+            "amount_applied": 22.5
+        }
+    ]
+}

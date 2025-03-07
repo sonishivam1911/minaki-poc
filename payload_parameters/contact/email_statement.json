@@ -1,0 +1,11 @@
+{
+    "send_from_org_email_id": true,
+    "to_mail_ids": [
+        "willsmith@bowmanfurniture.com"
+    ],
+    "cc_mail_ids": [
+        "peterparker@bowmanfurniture.com"
+    ],
+    "subject": "Statement of transactions with Zillium Inc",
+    "body": "Dear Customer,     We have attached with this email a list of all your transactions with us for the period 01 Sep 2013 to 30 Sep 2013. You can write to us or call us if you need any assistance or clarifications.     Thanks for your business.RegardsZillium Inc"
+}   

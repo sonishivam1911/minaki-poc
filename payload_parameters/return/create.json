@@ -1,0 +1,15 @@
+{
+    "salesreturn_number": "RMA-00001",
+    "date": "2025-03-10",
+    "reason": "Defective product received",
+    "salesorder_id": "4815000000044936",
+    "line_items": [
+        {
+            "item_id": "4815000000044100",
+            "salesorder_item_id": "4815000000044892",
+            "quantity": 3,
+            "non_receive_quantity": 2,
+            "warehouse_id": "130426000000664020"
+        }
+    ]
+}
