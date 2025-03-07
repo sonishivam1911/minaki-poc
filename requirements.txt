@@ -49,6 +49,7 @@ python-dateutil
 python-dotenv
 pytz
 PyYAML
+re
 referencing
 requests
 rich
@@ -75,3 +76,4 @@ ShopifyAPI
 dotenv
 requests
 pdfplumber
+fitz

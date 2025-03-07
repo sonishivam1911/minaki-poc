@@ -2,7 +2,7 @@ import pandas as pd
 import requests
 import logging
 import time
-from utils.zakya_api import (list_all_payments, update_payment, fetch_records_from_zakya)
+from utils.zakya_api import (list_all_payments, update_payment, fetch_records_from_zakya, extract_record_list)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -21,11 +21,6 @@ def sanitize_json(data):
             return None  # Convert invalid float values to None (JSON null)
     return data  # Return unchanged valid data
 
-def extract_record_list(input_data,key):
-    records = []
-    for record in input_data:
-        records.extend(record[f'{key}'])
-    return records
 
 def process_transactions(txn, base_url, access_token, organization_id):
     if "RRN number" not in txn.columns or "Total Fee(including Taxes)" not in txn.columns:
@@ -35,9 +30,9 @@ def process_transactions(txn, base_url, access_token, organization_id):
     txn = txn[pd.to_numeric(txn["RRN number"], errors="coerce").notna()]
     txn["RRN number"] = txn["RRN number"].astype(int)
     
-    payment_d = fetch_records_from_zakya(base_url, access_token, organization_id, '/customerpayments')
-    payment_f = extract_record_list(payment_d, 'customerpayments')
-    payment_df = pd.DataFrame.from_records(payment_f)
+    payment_fetch = fetch_records_from_zakya(base_url, access_token, organization_id, 'customerpayments')
+    payment_data = extract_record_list(payment_fetch, 'customerpayments')
+    payment_df = pd.DataFrame.from_records(payment_data)
     
     payment_df["reference_number"] = pd.to_numeric(payment_df["reference_number"], errors="coerce")
     payment_df = payment_df.dropna(subset=["reference_number"])

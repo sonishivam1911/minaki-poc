@@ -114,13 +114,24 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
         page_context = data.get('page_context',{})
         # print(data.keys())
         all_data.append(data)
-        print(all_data[0]["customerpayments"])
+        print(all_data[0][endpoint])
 
         if not page_context['has_more_page']:
             return all_data
         
         params['page'] = page_context['page'] + 1
+
+    
+    
     return none
+
+
+def extract_record_list(input_data,key):
+    records = []
+    for record in input_data:
+        records.extend(record[f'{key}'])
+    return records
+
 
 
 def fetch_organizations(base_url,access_token):
@@ -142,7 +153,7 @@ def fetch_organizations(base_url,access_token):
         return None
 
 
-def make_request(method, base_url, endpoint, access_token, organization_id, data=None, params=None):
+def make_request(method,base_url,  endpoint, access_token, organization_id, data=None, params=None):
     """
     Makes an HTTP request to the Zakya API with pagination support.
     """
@@ -186,346 +197,346 @@ def make_request(method, base_url, endpoint, access_token, organization_id, data
 
 
 # Item Group Functions
-def create_item_group( base_url,access_token, organization_id, item_group_data):
+def create_item_group(base_url, access_token, organization_id, item_group_data):
     """Creates a new item group in Zakya."""
     print("Creating new item group...")
-    return make_request("POST", base_url, "itemgroups", access_token, organization_id, item_group_data)
+    return make_request("POST",base_url,  "itemgroups", access_token, organization_id, item_group_data)
 
-def list_all_item_groups( base_url,access_token, organization_id):
+def list_all_item_groups(base_url, access_token, organization_id):
     """Lists all item groups available in Zakya."""
     print("Listing all item groups...")
-    return fetch_records_from_zakya( base_url, access_token, organization_id, "itemgroups")
+    return fetch_records_from_zakya(base_url,  access_token, organization_id, "itemgroups")
 
-def fetch_item_group( base_url,access_token, organization_id, itemgroup_id):
+def fetch_item_group(base_url, access_token, organization_id, itemgroup_id):
     """Fetches details of a specific item group by its ID."""
     print(f"Fetching details for item group ID: {itemgroup_id}...")
-    return make_request("GET", base_url, f"itemgroups/{itemgroup_id}", access_token, organization_id)
+    return make_request("GET",base_url,  f"itemgroups/{itemgroup_id}", access_token, organization_id)
 
-def update_item_group( base_url,access_token, organization_id, itemgroup_id, update_data):
+def update_item_group(base_url, access_token, organization_id, itemgroup_id, update_data):
     """Updates an existing item group with new data."""
     print(f"Updating item group ID: {itemgroup_id}...")
-    return make_request("PUT", base_url, f"itemgroups/{itemgroup_id}", access_token, organization_id, update_data)
+    return make_request("PUT",base_url,  f"itemgroups/{itemgroup_id}", access_token, organization_id, update_data)
 
-def delete_item_group( base_url,access_token, organization_id, itemgroup_id):
+def delete_item_group(base_url, access_token, organization_id, itemgroup_id):
     """Deletes an item group from Zakya."""
     print(f"Deleting item group ID: {itemgroup_id}...")
-    return make_request("DELETE", base_url, f"itemgroups/{itemgroup_id}", access_token, organization_id)
+    return make_request("DELETE",base_url,  f"itemgroups/{itemgroup_id}", access_token, organization_id)
 
-def mark_item_group_active( base_url,access_token, organization_id, itemgroup_id):
+def mark_item_group_active(base_url, access_token, organization_id, itemgroup_id):
     """Marks an item group as active."""
     print(f"Marking item group ID {itemgroup_id} as active...")
-    return make_request("POST", base_url, f"itemgroups/{itemgroup_id}/active", access_token, organization_id)
+    return make_request("POST",base_url,  f"itemgroups/{itemgroup_id}/active", access_token, organization_id)
 
-def mark_item_group_inactive( base_url,access_token, organization_id, itemgroup_id):
+def mark_item_group_inactive(base_url, access_token, organization_id, itemgroup_id):
     """Marks an item group as inactive."""
     print(f"Marking item group ID {itemgroup_id} as inactive...")
-    return make_request("POST", base_url, f"itemgroups/{itemgroup_id}/inactive", access_token, organization_id)
+    return make_request("POST",base_url,  f"itemgroups/{itemgroup_id}/inactive", access_token, organization_id)
 
 
 # Item Functions
-def create_item( base_url,access_token, organization_id, item_data):
+def create_item(base_url, access_token, organization_id, item_data):
     """Creates a new item in Zakya."""
     print("Creating new item...")
-    return make_request("POST", base_url, "items", access_token, organization_id, item_data)
+    return make_request("POST",base_url,  "items", access_token, organization_id, item_data)
 
-def list_all_items( base_url,access_token, organization_id):
+def list_all_items(base_url, access_token, organization_id):
     """Lists all items in Zakya."""
     print("Listing all items...")
-    return make_request("GET", base_url, "items", access_token, organization_id)
+    return make_request("GET",base_url,  "items", access_token, organization_id)
 
-def fetch_item( base_url,access_token, organization_id, item_id):
+def fetch_item(base_url, access_token, organization_id, item_id):
     """Fetches details of a specific item by its ID."""
     print(f"Fetching details for item ID: {item_id}...")
-    return make_request("GET", base_url, f"items/{item_id}", access_token, organization_id)
+    return make_request("GET",base_url,  f"items/{item_id}", access_token, organization_id)
 
-def fetch_bulk_items( base_url,access_token, organization_id, item_ids):
+def fetch_bulk_items(base_url, access_token, organization_id, item_ids):
     """Fetches details of multiple items in bulk."""
     print(f"Fetching details for item IDs: {item_ids}...")
     params = {"organization_id": organization_id, "item_ids": ",".join(item_ids)}
-    return make_request("GET", base_url, "items/bulk", access_token, organization_id, params=params)
+    return make_request("GET",base_url,  "items/bulk", access_token, organization_id, params=params)
 
-def update_item( base_url,access_token, organization_id, item_id, update_data):
+def update_item(base_url, access_token, organization_id, item_id, update_data):
     """Updates an existing item with new data."""
     print(f"Updating item ID: {item_id}...")
-    return make_request("PUT", base_url, f"items/{item_id}", access_token, organization_id, update_data)
+    return make_request("PUT",base_url,  f"items/{item_id}", access_token, organization_id, update_data)
 
-def delete_item( base_url,access_token, organization_id, item_id):
+def delete_item(base_url, access_token, organization_id, item_id):
     """Deletes an item from Zakya."""
     print(f"Deleting item ID: {item_id}...")
-    return make_request("DELETE", base_url, f"items/{item_id}", access_token, organization_id)
+    return make_request("DELETE",base_url,  f"items/{item_id}", access_token, organization_id)
 
-def mark_item_active( base_url,access_token, organization_id, item_id):
+def mark_item_active(base_url, access_token, organization_id, item_id):
     """Marks an item as active."""
     print(f"Marking item ID {item_id} as active...")
-    return make_request("POST", base_url, f"items/{item_id}/active", access_token, organization_id)
+    return make_request("POST",base_url,  f"items/{item_id}/active", access_token, organization_id)
 
-def mark_item_inactive( base_url,access_token, organization_id, item_id):
+def mark_item_inactive(base_url, access_token, organization_id, item_id):
     """Marks an item as inactive."""
     print(f"Marking item ID {item_id} as inactive...")
-    return make_request("POST", base_url, f"items/{item_id}/inactive", access_token, organization_id)
+    return make_request("POST",base_url,  f"items/{item_id}/inactive", access_token, organization_id)
 
-def adjust_item_stock(access_token, base_url, organization_id, item_id, stock_data):
+def adjust_item_stock(access_token,base_url,  organization_id, item_id, stock_data):
     """Adjusts the stock of an item."""
     print(f"Adjusting stock for item ID: {item_id}...")
-    return make_request("POST", base_url, f"items/{item_id}/adjustment", access_token, organization_id, stock_data)
+    return make_request("POST", base_url,  f"items/{item_id}/adjustment", access_token, organization_id, stock_data)
 
 
 # Sales Order Functions
-def create_sales_order( base_url,access_token, organization_id, sales_order_data):
+def create_sales_order(base_url, access_token, organization_id, sales_order_data):
     """Creates a new sales order in Zakya."""
     print("Creating new sales order...")
-    return make_request("POST", base_url, "salesorders", access_token, organization_id, sales_order_data)
+    return make_request("POST",base_url,  "salesorders", access_token, organization_id, sales_order_data)
 
-def list_all_sales_orders( base_url,access_token, organization_id):
+def list_all_sales_orders(base_url, access_token, organization_id):
     """Lists all sales orders available in Zakya."""
     print("Listing all sales orders...")
-    return fetch_records_from_zakya( base_url,access_token, organization_id, "salesorders")
+    return fetch_records_from_zakya(base_url, access_token, organization_id, "salesorders")
 
-def fetch_sales_order( base_url,access_token, organization_id, salesorder_id):
+def fetch_sales_order(base_url, access_token, organization_id, salesorder_id):
     """Fetches details of a specific sales order by its ID."""
     print(f"Fetching details for sales order ID: {salesorder_id}...")
-    return make_request("GET", base_url, f"salesorders/{salesorder_id}", access_token, organization_id)
+    return make_request("GET",base_url,  f"salesorders/{salesorder_id}", access_token, organization_id)
 
-def update_sales_order( base_url,access_token, organization_id, salesorder_id, update_data):
+def update_sales_order(base_url, access_token, organization_id, salesorder_id, update_data):
     """Updates an existing sales order with new data."""
     print(f"Updating sales order ID: {salesorder_id}...")
-    return make_request("PUT", base_url, f"salesorders/{salesorder_id}", access_token, organization_id, update_data)
+    return make_request("PUT",base_url,  f"salesorders/{salesorder_id}", access_token, organization_id, update_data)
 
-def delete_sales_order( base_url,access_token, organization_id, salesorder_id):
+def delete_sales_order(base_url, access_token, organization_id, salesorder_id):
     """Deletes a sales order from Zakya."""
     print(f"Deleting sales order ID: {salesorder_id}...")
-    return make_request("DELETE", base_url, f"salesorders/{salesorder_id}", access_token, organization_id)
+    return make_request("DELETE",base_url,  f"salesorders/{salesorder_id}", access_token, organization_id)
 
-def mark_sales_order_confirmed( base_url,access_token, organization_id, salesorder_id):
+def mark_sales_order_confirmed(base_url, access_token, organization_id, salesorder_id):
     """Marks a sales order as confirmed."""
     print(f"Marking sales order ID {salesorder_id} as confirmed...")
-    return make_request("POST", base_url, f"salesorders/{salesorder_id}/status/confirmed", access_token, organization_id)
+    return make_request("POST",base_url,  f"salesorders/{salesorder_id}/status/confirmed", access_token, organization_id)
 
-def mark_sales_order_void( base_url,access_token, organization_id, salesorder_id):
+def mark_sales_order_void(base_url, access_token, organization_id, salesorder_id):
     """Marks a sales order as void."""
     print(f"Marking sales order ID {salesorder_id} as void...")
-    return make_request("POST", base_url, f"salesorders/{salesorder_id}/status/void", access_token, organization_id)
+    return make_request("POST",base_url,  f"salesorders/{salesorder_id}/status/void", access_token, organization_id)
 
 # Package Functions
-def create_package( base_url,access_token, organization_id, salesorder_id, package_data):
+def create_package(base_url, access_token, organization_id, salesorder_id, package_data):
     """Creates a new package for a sales order in Zakya."""
     print(f"Creating package for Sales Order ID: {salesorder_id}...")
     params = {"salesorder_id": salesorder_id}
-    return make_request("POST", base_url, "packages", access_token, organization_id, package_data, params)
+    return make_request("POST",base_url,  "packages", access_token, organization_id, package_data, params)
 
-def list_all_packages( base_url,access_token, organization_id):
+def list_all_packages(base_url, access_token, organization_id):
     """Lists all packages available in Zakya."""
     print("Listing all packages...")
-    return fetch_records_from_zakya( base_url,access_token, organization_id, "packages")
+    return fetch_records_from_zakya(base_url, access_token, organization_id, "packages")
 
-def fetch_package( base_url,access_token, organization_id, package_id):
+def fetch_package(base_url, access_token, organization_id, package_id):
     """Fetches details of a specific package by its ID."""
     print(f"Fetching details for package ID: {package_id}...")
-    return make_request("GET", base_url, f"packages/{package_id}", access_token, organization_id)
+    return make_request("GET",base_url,  f"packages/{package_id}", access_token, organization_id)
 
-def update_package( base_url,access_token, organization_id, package_id, update_data):
+def update_package(base_url, access_token, organization_id, package_id, update_data):
     """Updates an existing package with new data."""
     print(f"Updating package ID: {package_id}...")
-    return make_request("PUT", base_url, f"packages/{package_id}", access_token, organization_id, update_data)
+    return make_request("PUT",base_url,  f"packages/{package_id}", access_token, organization_id, update_data)
 
-def delete_package( base_url,access_token, organization_id, package_id):
+def delete_package(base_url, access_token, organization_id, package_id):
     """Deletes a package from Zakya."""
     print(f"Deleting package ID: {package_id}...")
-    return make_request("DELETE", base_url, f"packages/{package_id}", access_token, organization_id)
+    return make_request("DELETE",base_url,  f"packages/{package_id}", access_token, organization_id)
 
 
 # Invoice Functions
-def create_invoice( base_url,access_token, organization_id, invoice_data):
+def create_invoice(base_url, access_token, organization_id, invoice_data):
     """Creates a new invoice in Zakya."""
     print("Creating new invoice...")
-    return make_request("POST", base_url, "invoices", access_token, organization_id, invoice_data)
+    return make_request("POST",base_url,  "invoices", access_token, organization_id, invoice_data)
 
-def list_all_invoices( base_url,access_token, organization_id):
+def list_all_invoices(base_url, access_token, organization_id):
     """Lists all invoices available in Zakya."""
     print("Listing all invoices...")
-    return fetch_records_from_zakya( base_url,access_token, organization_id, "invoices")
+    return fetch_records_from_zakya(base_url, access_token, organization_id, "invoices")
 
-def fetch_invoice( base_url,access_token, organization_id, invoice_id):
+def fetch_invoice(base_url, access_token, organization_id, invoice_id):
     """Fetches details of a specific invoice by its ID."""
     print(f"Fetching details for invoice ID: {invoice_id}...")
-    return make_request("GET", base_url, f"invoices/{invoice_id}", access_token, organization_id)
+    return make_request("GET",base_url,  f"invoices/{invoice_id}", access_token, organization_id)
 
-def update_invoice( base_url,access_token, organization_id, invoice_id, update_data):
+def update_invoice(base_url, access_token, organization_id, invoice_id, update_data):
     """Updates an existing invoice with new data."""
     print(f"Updating invoice ID: {invoice_id}...")
-    return make_request("PUT", base_url, f"invoices/{invoice_id}", access_token, organization_id, update_data)
+    return make_request("PUT",base_url,  f"invoices/{invoice_id}", access_token, organization_id, update_data)
 
-def delete_invoice( base_url,access_token, organization_id, invoice_id):
+def delete_invoice(base_url, access_token, organization_id, invoice_id):
     """Deletes an invoice from Zakya."""
     print(f"Deleting invoice ID: {invoice_id}...")
-    return make_request("DELETE", base_url, f"invoices/{invoice_id}", access_token, organization_id)
+    return make_request("DELETE",base_url,  f"invoices/{invoice_id}", access_token, organization_id)
 
-def mark_invoice_sent( base_url,access_token, organization_id, invoice_id):
+def mark_invoice_sent(base_url, access_token, organization_id, invoice_id):
     """Marks an invoice as sent."""
     print(f"Marking invoice ID {invoice_id} as sent...")
-    return make_request("POST", base_url, f"invoices/{invoice_id}/status/sent", access_token, organization_id)
+    return make_request("POST",base_url,  f"invoices/{invoice_id}/status/sent", access_token, organization_id)
 
-def mark_invoice_void( base_url,access_token, organization_id, invoice_id):
+def mark_invoice_void(base_url, access_token, organization_id, invoice_id):
     """Marks an invoice as void."""
     print(f"Marking invoice ID {invoice_id} as void...")
-    return make_request("POST", base_url, f"invoices/{invoice_id}/status/void", access_token, organization_id)
+    return make_request("POST",base_url,  f"invoices/{invoice_id}/status/void", access_token, organization_id)
 
-def mark_invoice_draft( base_url,access_token, organization_id, invoice_id):
+def mark_invoice_draft(base_url, access_token, organization_id, invoice_id):
     """Marks an invoice as draft."""
     print(f"Marking invoice ID {invoice_id} as draft...")
-    return make_request("POST", base_url, f"invoices/{invoice_id}/status/draft", access_token, organization_id)
+    return make_request("POST",base_url,  f"invoices/{invoice_id}/status/draft", access_token, organization_id)
 
-def send_invoice_email( base_url,access_token, organization_id, invoice_id, email_data):
+def send_invoice_email(base_url, access_token, organization_id, invoice_id, email_data):
     """Sends an invoice email to the customer."""
     print(f"Sending invoice ID {invoice_id} via email...")
-    return make_request("POST", base_url, f"invoices/{invoice_id}/email", access_token, organization_id, email_data)
+    return make_request("POST",base_url,  f"invoices/{invoice_id}/email", access_token, organization_id, email_data)
 
-def fetch_invoice_payments( base_url,access_token, organization_id, invoice_id):
+def fetch_invoice_payments(base_url, access_token, organization_id, invoice_id):
     """Fetches all payments associated with a specific invoice."""
     print(f"Fetching payments for invoice ID: {invoice_id}...")
-    return make_request("GET", base_url, f"invoices/{invoice_id}/payments", access_token, organization_id)
+    return make_request("GET",base_url,  f"invoices/{invoice_id}/payments", access_token, organization_id)
 
-def apply_credits_to_invoice( base_url,access_token, organization_id, invoice_id, credit_data):
+def apply_credits_to_invoice(base_url, access_token, organization_id, invoice_id, credit_data):
     """Applies customer credits to an invoice."""
     print(f"Applying credits to invoice ID: {invoice_id}...")
-    return make_request("POST", base_url, f"invoices/{invoice_id}/credits", access_token, organization_id, credit_data)
+    return make_request("POST",base_url,  f"invoices/{invoice_id}/credits", access_token, organization_id, credit_data)
 
-def update_invoice_template( base_url,access_token, organization_id, invoice_id, template_id):
+def update_invoice_template(base_url, access_token, organization_id, invoice_id, template_id):
     """Updates the PDF template associated with an invoice."""
     print(f"Updating template for invoice ID: {invoice_id}...")
-    return make_request("PUT", base_url, f"invoices/{invoice_id}/templates/{template_id}", access_token, organization_id)
+    return make_request("PUT",base_url,  f"invoices/{invoice_id}/templates/{template_id}", access_token, organization_id)
 
-def get_invoice_email_content( base_url,access_token, organization_id, invoice_id):
+def get_invoice_email_content(base_url, access_token, organization_id, invoice_id):
     """Retrieves the email content of a specific invoice."""
     print(f"Fetching email content for invoice ID: {invoice_id}...")
-    return make_request("GET", base_url, f"invoices/{invoice_id}/email", access_token, organization_id)
+    return make_request("GET",base_url,  f"invoices/{invoice_id}/email", access_token, organization_id)
 
-def email_multiple_invoices( base_url,access_token, organization_id, email_data):
+def email_multiple_invoices(base_url, access_token, organization_id, email_data):
     """Sends emails for multiple invoices."""
     print("Sending multiple invoices via email...")
-    return make_request("POST", base_url, "invoices/email", access_token, organization_id, email_data)
+    return make_request("POST",base_url,  "invoices/email", access_token, organization_id, email_data)
 
-def get_payment_reminder_email_content( base_url,access_token, organization_id, invoice_id):
+def get_payment_reminder_email_content(base_url, access_token, organization_id, invoice_id):
     """Fetches the content of the payment reminder email for a specific invoice."""
     print(f"Fetching payment reminder email content for invoice ID: {invoice_id}...")
-    return make_request("GET", base_url, f"invoices/{invoice_id}/paymentreminder", access_token, organization_id)
+    return make_request("GET",base_url,  f"invoices/{invoice_id}/paymentreminder", access_token, organization_id)
 
-def bulk_export_invoices( base_url,access_token, organization_id, export_data):
+def bulk_export_invoices(base_url, access_token, organization_id, export_data):
     """Exports multiple invoices in bulk."""
     print("Initiating bulk export of invoices...")
-    return make_request("POST", base_url, "invoices/export", access_token, organization_id, export_data)
+    return make_request("POST",base_url,  "invoices/export", access_token, organization_id, export_data)
 
-def bulk_print_invoices( base_url,access_token, organization_id, print_data):
+def bulk_print_invoices(base_url, access_token, organization_id, print_data):
     """Prints multiple invoices in bulk."""
     print("Initiating bulk print of invoices...")
-    return make_request("POST", base_url, "invoices/print", access_token, organization_id, print_data)
+    return make_request("POST",base_url,  "invoices/print", access_token, organization_id, print_data)
 
-def disable_payment_reminder( base_url,access_token, organization_id, invoice_id):
+def disable_payment_reminder(base_url, access_token, organization_id, invoice_id):
     """Disables payment reminders for a specific invoice."""
     print(f"Disabling payment reminder for invoice ID: {invoice_id}...")
-    return make_request("POST", base_url, f"invoices/{invoice_id}/paymentreminder/disable", access_token, organization_id)
+    return make_request("POST",base_url,  f"invoices/{invoice_id}/paymentreminder/disable", access_token, organization_id)
 
-def enable_payment_reminder( base_url,access_token, organization_id, invoice_id):
+def enable_payment_reminder(base_url, access_token, organization_id, invoice_id):
     """Enables payment reminders for a specific invoice."""
     print(f"Enabling payment reminder for invoice ID: {invoice_id}...")
-    return make_request("POST", base_url, f"invoices/{invoice_id}/paymentreminder/enable", access_token, organization_id)
+    return make_request("POST",base_url,  f"invoices/{invoice_id}/paymentreminder/enable", access_token, organization_id)
 
 
 # Customer Payments Functions
-def create_payment( base_url,access_token, organization_id, payment_data):
+def create_payment(base_url, access_token, organization_id, payment_data):
     """Creates a new customer payment in Zakya."""
     print("Creating new payment...")
-    return make_request("POST", base_url, "customerpayments", access_token, organization_id, payment_data)
+    return make_request("POST",base_url,  "customerpayments", access_token, organization_id, payment_data)
 
-def list_all_payments( base_url,access_token, organization_id):
+def list_all_payments(base_url, access_token, organization_id):
     """Lists all customer payments in Zakya."""
     print("Listing all payments...")
-    return make_request("GET", base_url, "customerpayments", access_token, organization_id)
+    return make_request("GET",base_url,  "customerpayments", access_token, organization_id)
 
-def fetch_payment( base_url, access_token, organization_id, payment_id):
+def fetch_payment(base_url,  access_token, organization_id, payment_id):
     """Fetches details of a specific payment by its ID."""
     print(f"Fetching details for payment ID: {payment_id}...")
-    return make_request("GET", base_url, base_url, f"/customerpayments/{payment_id}", access_token, organization_id)
+    return make_request("GET",base_url, base_url,  f"/customerpayments/{payment_id}", access_token, organization_id)
 
-def update_payment( base_url, access_token, organization_id, payment_id, update_data):
+def update_payment(base_url,  access_token, organization_id, payment_id, update_data):
     """Updates an existing customer payment with new data."""
     print(f"Updating payment ID: {payment_id}...")
-    return make_request("PUT", base_url, base_url, f"/customerpayments/{payment_id}", access_token, organization_id, update_data)
+    return make_request("PUT",base_url, base_url,  f"/customerpayments/{payment_id}", access_token, organization_id, update_data)
 
-def delete_payment( base_url,access_token, organization_id, payment_id):
+def delete_payment(base_url, access_token, organization_id, payment_id):
     """Deletes a customer payment from Zakya."""
     print(f"Deleting payment ID: {payment_id}...")
-    return make_request("DELETE", base_url, f"customerpayments/{payment_id}", access_token, organization_id)
+    return make_request("DELETE",base_url,  f"customerpayments/{payment_id}", access_token, organization_id)
 
 
 # Sales Returns Functions
-def create_sales_return( base_url,access_token, organization_id, sales_return_data):
+def create_sales_return(base_url, access_token, organization_id, sales_return_data):
     """Creates a new sales return in Zakya."""
     print("Creating new sales return...")
-    return make_request("POST", base_url, "salesreturns", access_token, organization_id, sales_return_data)
+    return make_request("POST",base_url,  "salesreturns", access_token, organization_id, sales_return_data)
 
-def list_all_sales_returns( base_url,access_token, organization_id):
+def list_all_sales_returns(base_url, access_token, organization_id):
     """Lists all sales returns in Zakya."""
     print("Listing all sales returns...")
-    return make_request("GET", base_url, "salesreturns", access_token, organization_id)
+    return make_request("GET",base_url,  "salesreturns", access_token, organization_id)
 
-def fetch_sales_return( base_url,access_token, organization_id, salesreturn_id):
+def fetch_sales_return(base_url, access_token, organization_id, salesreturn_id):
     """Fetches details of a specific sales return by its ID."""
     print(f"Fetching details for sales return ID: {salesreturn_id}...")
-    return make_request("GET", base_url, f"salesreturns/{salesreturn_id}", access_token, organization_id)
+    return make_request("GET",base_url,  f"salesreturns/{salesreturn_id}", access_token, organization_id)
 
-def update_sales_return( base_url,access_token, organization_id, salesreturn_id, update_data):
+def update_sales_return(base_url, access_token, organization_id, salesreturn_id, update_data):
     """Updates an existing sales return with new data."""
     print(f"Updating sales return ID: {salesreturn_id}...")
-    return make_request("PUT", base_url, f"salesreturns/{salesreturn_id}", access_token, organization_id, update_data)
+    return make_request("PUT",base_url,  f"salesreturns/{salesreturn_id}", access_token, organization_id, update_data)
 
 def delete_sales_return(base_url, access_token, organization_id, salesreturn_id):
     """Deletes a sales return from Zakya."""
     print(f"Deleting sales return ID: {salesreturn_id}...")
-    return make_request("DELETE", base_url, f"salesreturns/{salesreturn_id}", access_token, organization_id)
+    return make_request("DELETE",base_url,  f"salesreturns/{salesreturn_id}", access_token, organization_id)
 
-def create_sales_return_receive( base_url,access_token, organization_id, salesreturn_id, receive_data):
+def create_sales_return_receive(base_url, access_token, organization_id, salesreturn_id, receive_data):
     """Creates a sales return receive to mark the returned goods as received."""
     print(f"Creating sales return receive for sales return ID: {salesreturn_id}...")
     params = {"salesreturn_id": salesreturn_id}
-    return make_request("POST", base_url, "salesreturnreceives", access_token, organization_id, receive_data, params)
+    return make_request("POST",base_url,  "salesreturnreceives", access_token, organization_id, receive_data, params)
 
-def delete_sales_return_receive( base_url,access_token, organization_id, receive_id):
+def delete_sales_return_receive(base_url, access_token, organization_id, receive_id):
     """Deletes a sales return receive record."""
     print(f"Deleting sales return receive ID: {receive_id}...")
-    return make_request("DELETE", base_url, f"salesreturnreceives/{receive_id}", access_token, organization_id)
+    return make_request("DELETE",base_url,  f"salesreturnreceives/{receive_id}", access_token, organization_id)
 
 
 # Credit Notes Functions
-def create_credit_note( base_url,access_token, organization_id, credit_note_data):
+def create_credit_note(base_url, access_token, organization_id, credit_note_data):
     """Creates a new credit note in Zakya."""
     print("Creating new credit note...")
-    return make_request("POST", base_url, "creditnotes", access_token, organization_id, credit_note_data)
+    return make_request("POST",base_url,  "creditnotes", access_token, organization_id, credit_note_data)
 
-def list_all_credit_notes( base_url,access_token, organization_id):
+def list_all_credit_notes(base_url, access_token, organization_id):
     """Lists all credit notes in Zakya."""
     print("Listing all credit notes...")
-    return make_request("GET", base_url, "creditnotes", access_token, organization_id)
+    return make_request("GET",base_url,  "creditnotes", access_token, organization_id)
 
-def fetch_credit_note( base_url,access_token, organization_id, creditnote_id):
+def fetch_credit_note(base_url, access_token, organization_id, creditnote_id):
     """Fetches details of a specific credit note by its ID."""
     print(f"Fetching details for credit note ID: {creditnote_id}...")
-    return make_request("GET", base_url, f"creditnotes/{creditnote_id}", access_token, organization_id)
+    return make_request("GET",base_url,  f"creditnotes/{creditnote_id}", access_token, organization_id)
 
-def update_credit_note( base_url,access_token, organization_id, creditnote_id, update_data):
+def update_credit_note(base_url, access_token, organization_id, creditnote_id, update_data):
     """Updates an existing credit note with new data."""
     print(f"Updating credit note ID: {creditnote_id}...")
-    return make_request("PUT", base_url, f"creditnotes/{creditnote_id}", access_token, organization_id, update_data)
+    return make_request("PUT",base_url,  f"creditnotes/{creditnote_id}", access_token, organization_id, update_data)
 
-def delete_credit_note( base_url,access_token, organization_id, creditnote_id):
+def delete_credit_note(base_url, access_token, organization_id, creditnote_id):
     """Deletes a credit note from Zakya."""
     print(f"Deleting credit note ID: {creditnote_id}...")
-    return make_request("DELETE", base_url, f"creditnotes/{creditnote_id}", access_token, organization_id)
+    return make_request("DELETE",base_url,  f"creditnotes/{creditnote_id}", access_token, organization_id)
 
-def void_credit_note( base_url,access_token, organization_id, creditnote_id):
+def void_credit_note(base_url, access_token, organization_id, creditnote_id):
     """Marks a credit note as void."""
     print(f"Voiding credit note ID: {creditnote_id}...")
-    return make_request("POST", base_url, f"creditnotes/{creditnote_id}/void", access_token, organization_id)
+    return make_request("POST",base_url,  f"creditnotes/{creditnote_id}/void", access_token, organization_id)
 
 def convert_credit_note_to_draft(base_url, access_token, organization_id, creditnote_id):
     """Converts a credit note to draft status."""
@@ -617,7 +628,7 @@ def delete_contact(base_url,access_token, organization_id, contact_id):
 def mark_contact_active(base_url, access_token, organization_id, contact_id):
     """Marks a contact as active."""
     print(f"Marking contact ID {contact_id} as active...")
-    return make_request("POST", base_url,f"contacts/{contact_id}/active", access_token, organization_id)
+    return make_request("POST",base_url, f"contacts/{contact_id}/active", access_token, organization_id)
 
 def mark_contact_inactive(base_url, access_token, organization_id, contact_id):
     """Marks a contact as inactive."""
@@ -681,7 +692,7 @@ def create_price_list(base_url, access_token, organization_id, price_list_data):
 def list_all_price_lists(base_url, access_token, organization_id):
     """Lists all price lists in Zakya."""
     print("Listing all price lists...")
-    return make_request("GET", base_url, "pricebooks", access_token, organization_id)
+    return make_request("GET",base_url,  "pricebooks", access_token, organization_id)
 
 def fetch_price_list(base_url, access_token, organization_id, pricebook_id):
     """Fetches details of a specific price list by its ID."""
