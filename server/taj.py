@@ -1,4 +1,6 @@
 import math
+import asyncio
+from functools import partial
 import pandas as pd
 import logging
 from dotenv import load_dotenv
@@ -18,49 +20,71 @@ from config.constants import (
 load_dotenv()
 
 
-def create_whereclause_fetch_data(pydantic_model, filter_dict, query):
+async def create_whereclause_fetch_data(pydantic_model, filter_dict, query):
     """
-    Fetch the row for the specified branch name as a JSON/dict.
+    Fetch the row for the specified branch name as a JSON/dict asynchronously.
 
     Args:
-        customer_data_df (pd.DataFrame): DataFrame containing customer data.
-        branch_name (str): Branch name to filter.
+        pydantic_model: Pydantic model for validation.
+        filter_dict: Dictionary with filter conditions.
+        query: SQL query template.
 
     Returns:
         dict: Row data as a dictionary.
     """
     try:
         # Filter customer data for the given branch name
-        whereClause=crud.build_where_clause(pydantic_model,filter_dict)
+        whereClause = crud.build_where_clause(pydantic_model, filter_dict)
         formatted_query = query.format(whereClause=whereClause)
-        data = crud.execute_query(query=formatted_query,return_data=True)
+        
+        # Run the synchronous database query in a thread pool to make it non-blocking
+        data = await asyncio.to_thread(crud.execute_query, query=formatted_query, return_data=True)
         # logger.debug(f"query is {formatted_query} and data is {data}")
         return data.to_dict('records')
     except Exception as e:
         return {"error": f"Error fetching row: {e}"}
 
 
-def find_missing_products(style):
+async def find_missing_products(style):
     style_cleaned = style  # Remove the color option from SKU
     
-    items_data = create_whereclause_fetch_data(ZakyaProducts, {
+    items_data = await create_whereclause_fetch_data(ZakyaProducts, {
         products_mapping_zakya_products['style']: {'op': 'eq', 'value': style_cleaned}
     }, queries.fetch_prodouct_records)    
 
     return items_data
 
 
-def find_missing_salesorder(salesorder_number):
+async def find_missing_salesorder(salesorder_number):
     
-    salesorder_data = create_whereclause_fetch_data(ZakyaSalesOrder, {
+    salesorder_data = await create_whereclause_fetch_data(ZakyaSalesOrder, {
         salesorder_mapping_zakya['salesorder_number']: {'op': 'eq', 'value': salesorder_number}
     }, queries.fetch_salesorderid_record) 
 
     return salesorder_data
 
 
-def preprocess_taj_sales_report(taj_sales_df):
+async def run_limited_tasks(tasks, limit=10):
+    """
+    Run tasks with a limit on concurrent execution.
+    
+    Args:
+        tasks: List of coroutines to run
+        limit: Maximum number of tasks to run concurrently
+        
+    Returns:
+        List of results in the same order as the input tasks
+    """
+    semaphore = asyncio.Semaphore(limit)
+    
+    async def run_with_semaphore(task):
+        async with semaphore:
+            return await task
+    
+    return await asyncio.gather(*[run_with_semaphore(task) for task in tasks])
 
+
+async def preprocess_taj_sales_report(taj_sales_df):
     existing_products = []
     missing_products = []
     existing_sales_orders = []
@@ -68,43 +92,61 @@ def preprocess_taj_sales_report(taj_sales_df):
     existing_sku_item_id_mapping = {}
     existing_salesorder_number_salesorder_id_mapping = {}
     
-    # First pass: Identify missing products and sales orders
+    # Prepare tasks for both product and sales order lookups
+    product_tasks = []
+    product_styles = []
+    salesorder_tasks = []
+    salesorder_numbers = []
+    
     for _, row in taj_sales_df.iterrows():
         style = row.get("Style", "").strip()
         salesorder_number = row.get("PartyDoc No", "").split(" ")[-1]
         logger.debug(f"sku is {style} and sales order number is {salesorder_number}")
         
-        items_data = find_missing_products(style)
-        salesorder_data = find_missing_salesorder(salesorder_number)
+        product_tasks.append(find_missing_products(style))
+        product_styles.append(style)
         
-        if items_data:
+        salesorder_tasks.append(find_missing_salesorder(salesorder_number))
+        salesorder_numbers.append(salesorder_number)
+    
+    # Run product lookup tasks with concurrency limit
+    product_results = await run_limited_tasks(product_tasks, limit=10)
+    
+    # Process product results
+    for style, items_data in zip(product_styles, product_results):
+        if items_data and not isinstance(items_data, dict) and "error" not in items_data:
             existing_sku_item_id_mapping[style] = items_data[0]["item_id"]
             existing_products.append(style)
         else:
             missing_products.append(style)
-        
-        if salesorder_data:
-            existing_salesorder_number_salesorder_id_mapping[salesorder_number]=salesorder_data[0]["salesorder_id"]
+    
+    # Run sales order lookup tasks with concurrency limit
+    salesorder_results = await run_limited_tasks(salesorder_tasks, limit=10)
+    
+    # Process sales order results
+    for salesorder_number, salesorder_data in zip(salesorder_numbers, salesorder_results):
+        if salesorder_data and not isinstance(salesorder_data, dict) and "error" not in salesorder_data:
+            existing_salesorder_number_salesorder_id_mapping[salesorder_number] = salesorder_data[0]["salesorder_id"]
             existing_sales_orders.append(salesorder_data)
         else:
-            missing_sales_orders.append(salesorder_number)    
-
+            missing_sales_orders.append(salesorder_number)
+    
     logger.debug(f"missing_products is {missing_products}")
     logger.debug(f"existing_products is {existing_products}")
     logger.debug(f"existing_sales_orders is {existing_sales_orders}")
     logger.debug(f"missing_sales_orders is {missing_sales_orders}")
 
     return {
-        "missing_products" : missing_products,
-        "existing_products" : existing_products,
-        "missing_sales_orders" : missing_sales_orders,
-        "existing_sales_orders" : existing_sales_orders,
-        "existing_sku_item_id_mapping" : existing_sku_item_id_mapping,
-        'existing_salesorder_number_salesorder_id_mapping' : existing_salesorder_number_salesorder_id_mapping
+        "missing_products": missing_products,
+        "existing_products": existing_products,
+        "missing_sales_orders": missing_sales_orders,
+        "existing_sales_orders": existing_sales_orders,
+        "existing_sku_item_id_mapping": existing_sku_item_id_mapping,
+        'existing_salesorder_number_salesorder_id_mapping': existing_salesorder_number_salesorder_id_mapping
     }
 
 
-def create_products_and_sales_order(taj_sales_df, zakya_connection_object, config):
+async def create_products_and_sales_order(taj_sales_df, zakya_connection_object, config):
 
     sales_orders_payload = defaultdict(list)
     sales_order_customer_id_mapping = {}
@@ -124,7 +166,7 @@ def create_products_and_sales_order(taj_sales_df, zakya_connection_object, confi
         brand = "MINAKI Menz" if tax_name == "12%" else "MINAKI"
         unit = "pair" if item_dept == "COSTUME JEWELLERY" and "EARRING" in iname else "pcs"
 
-        customer_data = create_whereclause_fetch_data(ZakyaContacts,{
+        customer_data = await create_whereclause_fetch_data(ZakyaContacts,{
             customer_mapping_zakya_contacts['branch_name'] : {
                 'op' : 'eq' , 'value' : branch_name
             }
@@ -217,7 +259,7 @@ def fetch_sales_order(config,zakya_connection_object):
     return salesorder_map, item_sales_map
 
 
-def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
+async def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
 
     invoices_payload = defaultdict(lambda: {"line_items": []})
     for _, row in taj_sales_df.iterrows():
@@ -237,7 +279,7 @@ def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
         brand = "MINAKI Menz" if tax_name == "12%" else "MINAKI"
         unit = "pair" if item_dept == "COSTUME JEWELLERY" and "EARRING" in iname else "pcs"
 
-        customer_data = create_whereclause_fetch_data(ZakyaContacts,{
+        customer_data = await create_whereclause_fetch_data(ZakyaContacts,{
             customer_mapping_zakya_contacts['branch_name'] : {
                 'op' : 'eq' , 'value' : branch_name
             }
@@ -309,8 +351,8 @@ def process_taj_sales(taj_sales_df,invoice_date,zakya_connection_object):
 
     taj_sales_df["Style"]=taj_sales_df["Style"].astype(str) 
     taj_sales_df['Rounded_Total'] = taj_sales_df['Total'].apply(lambda x: math.ceil(x) if x - int(x) >= 0.5 else math.floor(x))    
-    config = preprocess_taj_sales_report(taj_sales_df)
-    sku_to_item_id = create_products_and_sales_order(taj_sales_df,zakya_connection_object,config)
+    config = asyncio.run(preprocess_taj_sales_report(taj_sales_df))
+    sku_to_item_id = asyncio.run(create_products_and_sales_order(taj_sales_df,zakya_connection_object,config))
     salesorder_map, item_sales_map = fetch_sales_order(config,zakya_connection_object)
     invoice_object = {
         'salesorder_map' : salesorder_map,
@@ -320,5 +362,5 @@ def process_taj_sales(taj_sales_df,invoice_date,zakya_connection_object):
     }
     logger.debug(f"salesorder_map is {salesorder_map}")
     logger.debug(f"item_sales_map is {item_sales_map}")
-    invoice_df = create_invoices(taj_sales_df,zakya_connection_object,invoice_object)
+    invoice_df = asyncio.run(create_invoices(taj_sales_df,zakya_connection_object,invoice_object))
     return invoice_df
