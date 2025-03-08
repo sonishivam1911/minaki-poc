@@ -14,3 +14,5 @@ CATEGORY_MAPPING = {
 
 # Batch size for asynchronous image downloading
 BATCH_SIZE = 20
+
+
