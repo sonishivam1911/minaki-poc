@@ -37,7 +37,6 @@ pfzy
 pillow
 prompt_toolkit
 propcache
-protobuf
 psycopg2-binary
 pyarrow
 pydeck
