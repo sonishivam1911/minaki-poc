@@ -77,3 +77,4 @@ dotenv
 requests
 pdfplumber
 fitz
+twilio

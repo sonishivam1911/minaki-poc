@@ -114,15 +114,12 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
         page_context = data.get('page_context',{})
         # print(data.keys())
         all_data.append(data)
-        print(all_data[0][endpoint])
+        # print(all_data[0][endpoint])
 
         if not page_context['has_more_page']:
             return all_data
         
         params['page'] = page_context['page'] + 1
-
-    
-    
     return none
 
 

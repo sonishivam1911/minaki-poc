@@ -54,6 +54,7 @@ def process_transactions(txn, base_url, access_token, organization_id):
         payment = payment_df[payment_df["reference_number"] == reference_number]
         
         if not payment.empty:
+            print(payment)
             payment_id = payment.iloc[0]["payment_id"]
             update_data = {
                 "custom_fields": [
