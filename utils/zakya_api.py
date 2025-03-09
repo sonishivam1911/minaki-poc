@@ -112,14 +112,13 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
         response.raise_for_status()
         data = response.json()                      
         page_context = data.get('page_context',{})
-        # print(data.keys())
         all_data.append(data)
-        print(all_data[0]["customerpayments"])
 
         if not page_context['has_more_page']:
             return all_data
         
         params['page'] = page_context['page'] + 1
+    
     return none
 
 
@@ -713,16 +712,24 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
     :param payload: Dictionary containing the data to be sent in the request.
     :return: JSON response from the API.
     """
-    url = f"{base_url}/inventory/v1{endpoint}?organization_id={organization_id}"
+    url = f"{base_url}/inventory/v1{endpoint}"
     
     headers = {
         'Authorization': f"Zoho-oauthtoken {access_token}",
         'Content-Type': 'application/json'
     }
 
+    params = {
+        'organization_id': organization_id,
+    }
+
+    if "/salesorders" in endpoint:
+        params['ignore_auto_number_generation'] = True
+
     response = requests.post(
         url=url,
         headers=headers,
+        params=params,
         json=payload
     )
     print(response.text)
