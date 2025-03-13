@@ -3,13 +3,28 @@ BASE_URL = "https://www.xuping.com.cn"
 
 # Mapping for item categories to SKU prefixes
 CATEGORY_MAPPING = {
-    "earring": "MXE",
+    "Earrings": "MXE",
     "ring": "MXR",
     "set": "MXS",
-    "bracelet": "MXB",
+    "Bracelets": "MXB",
     "bangle": "MXB",
     "ankle": "MXA",
-    "pendant": "MXP"
+    "pendant": "MXP",
+    "Hoop Earrings" : "MXE",
+    "Dangler Earrings" : "MXE",
+    "Stud Earrings" : "MXE",
+}
+
+XUPING_CATEGORY_MAPPNG = {
+    "Earrings": "MXE",   
+    "Bracelets": "MXB",     
+    "Hoop Earrings" : "MXE",
+    "Dangler Earrings" : "MXE",
+    "Stud Earrings" : "MXE",    
+}
+
+VENDOR_MAPPING = {
+    'vendor 1' : 'xuping'
 }
 
 # Batch size for asynchronous image downloading
