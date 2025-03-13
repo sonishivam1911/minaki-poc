@@ -120,7 +120,7 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
         
         params['page'] = page_context['page'] + 1
     
-    return none
+    return []
 
 
 def extract_record_list(input_data,key):

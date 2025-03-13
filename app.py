@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 
 from utils.zakya_api import get_access_token,get_authorization_url,fetch_organizations
 from utils.postgres_connector import crud
+from config.logger import logger
 
 load_dotenv()
 
@@ -18,15 +19,18 @@ def login_page():
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
-    if st.button("Login"):
+    st.button("Login",on_click=authenticate_user,args=(username, password))
         # Use PostgresCRUD's authenticate_user method for validation
-        if crud.authenticate_user(username, password):
-            st.session_state["is_authenticated"] = True
-            st.session_state["username"] = username
-            st.success("Login successful!")
-            st.rerun()  # Reload the app after login success
-        else:
-            st.error("Invalid username or password.")
+
+
+def authenticate_user(username, password):
+    if crud.authenticate_user(username, password):
+        st.session_state["is_authenticated"] = True
+        st.session_state["username"] = username
+        st.success("Login successful!")
+        st.rerun()  # Reload the app after login success
+    else:
+        st.error("Invalid username or password.")
 
 def logout():
     """Logout functionality."""
@@ -37,9 +41,13 @@ def logout():
 
 def main():
     """Main application logic."""
-    code=st.query_params.get("code")
     
-    if code:
+    
+    logger.debug(f"Session state variables are : {st.session_state}")
+    code=st.query_params.get("code")
+    logger.debug(f"code is {code}")
+    if "code" not in st.session_state and code and len(code)>0:
+        code=st.query_params.get("code")
         st.session_state['code'] = code
 
         if 'access_token' not in st.session_state:
@@ -65,7 +73,7 @@ def main():
             st.session_state['organization_id'] = org_data['organizations'][0]['organization_id']
             # st.switch_page('Zakaya_Integration.py')
         
-    else:
+    elif "code" not in st.session_state:
         fetch_zakya_code()
 
 
