@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env
 load_dotenv()
 
-BASE_URL = "https://api.zakya.com/inventory/v1"  # Replace with actual Zakya API base URL
+BASE_URL = "https://api.zakya.in/inventory/v1"  # Replace with actual Zakya API base URL
 
 # Environment variables for authentication
 CLIENT_ID = os.getenv("ZAKYA_CLIENT_ID")
@@ -20,7 +20,7 @@ def get_authorization_url():
     Generate the authorization URL for Zakya login.
     """
     params = {
-        "scope": "ZohoInventory.FullAccess.all", 
+        "scope": "ZakyaAPI.fullaccess.all", 
         "client_id": CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
         "response_type": "code",
@@ -113,6 +113,7 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
         data = response.json()                      
         page_context = data.get('page_context',{})
         all_data.append(data)
+        # print(all_data[0]["customerpayments"])
         # print(all_data[0][endpoint])
 
         if not page_context['has_more_page']:
@@ -131,11 +132,11 @@ def extract_record_list(input_data,key):
 
 
 
-def fetch_organizations(base_url,access_token):
+def fetch_organizations(access_token):
     """
     Fetch organizations from Zoho Inventory API.
     """
-    url = f"{base_url}/inventory/v1/organizations"
+    url = f"https://api.zakya.in/inventory/v1/organizations"
     headers = {
         "Authorization": f"Zoho-oauthtoken {access_token}",
         "Content-Type": "application/json"
@@ -721,7 +722,7 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
     :param payload: Dictionary containing the data to be sent in the request.
     :return: JSON response from the API.
     """
-    url = f"{base_url}/inventory/v1{endpoint}"
+    url = f"{base_url}inventory/v1{endpoint}"
     
     headers = {
         'Authorization': f"Zoho-oauthtoken {access_token}",
@@ -733,6 +734,8 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
     }
 
     if "/salesorders" in endpoint:
+        params['ignore_auto_number_generation'] = True
+    elif "/invoices" in endpoint:
         params['ignore_auto_number_generation'] = True
 
     response = requests.post(
