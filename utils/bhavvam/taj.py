@@ -159,7 +159,6 @@ def process_taj_sales(taj_sales_df, invoice_date, base_url, access_token, organi
             "invoice_number": invoice_response.get("invoice_number"),
             "customer_name": branch_name,
             "date": invoice_payload["date"],
-            "due_date": invoice_date.strftime("%Y-%m-%d"),
             "amount": sum(item["rate"] * item["quantity"] for item in line_items)
         })
     
