@@ -61,7 +61,7 @@ def main():
         
         if 'organization_id' not in st.session_state:
             # st.header("Organizations")
-            org_data = fetch_organizations(st.session_state['api_domain'],st.session_state['access_token'])            
+            org_data = fetch_organizations(st.session_state['access_token'])            
             st.session_state['organization_id'] = org_data['organizations'][0]['organization_id']
             # st.switch_page('Zakaya_Integration.py')
         
@@ -77,7 +77,7 @@ def token_authentication():
     token_data = get_access_token(auth_code=st.session_state['code'])
     print(f'token url is {token_data}')
     st.session_state['access_token'] = token_data["access_token"]
-    st.session_state['api_domain'] = token_data["api_domain"]
+    st.session_state['api_domain'] = "https://api.zakya.in/"
     st.success("Authentication successful!")
     
 

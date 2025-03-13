@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env
 load_dotenv()
 
-BASE_URL = "https://api.zakya.com/inventory/v1"  # Replace with actual Zakya API base URL
+BASE_URL = "https://api.zakya.com/inventory/v1/"  # Replace with actual Zakya API base URL
 
 # Environment variables for authentication
 CLIENT_ID = os.getenv("ZAKYA_CLIENT_ID")
@@ -20,7 +20,7 @@ def get_authorization_url():
     Generate the authorization URL for Zakya login.
     """
     params = {
-        "scope": "ZohoInventory.FullAccess.all", 
+        "scope": "ZakyaAPI.fullaccess.all", 
         "client_id": CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
         "response_type": "code",
@@ -47,10 +47,10 @@ def get_access_token(auth_code=None, refresh_token=None):
     if auth_code:
         payload["grant_type"] = "authorization_code"
         payload["code"] = auth_code
-    elif refresh_token:
-        payload["grant_type"] = "refresh_token"
-        payload["refresh_token"] = refresh_token
-    else:
+    # elif refresh_token:
+    #     payload["grant_type"] = "refresh_token"
+    #     payload["refresh_token"] = refresh_token
+    else:   
         raise ValueError("Either auth_code or refresh_token must be provided.")
 
     print(f'data is : {payload}')
@@ -131,11 +131,11 @@ def extract_record_list(input_data,key):
 
 
 
-def fetch_organizations(base_url,access_token):
+def fetch_organizations(access_token):
     """
     Fetch organizations from Zoho Inventory API.
     """
-    url = f"{base_url}/inventory/v1/organizations"
+    url = f"https://api.zakya.in/inventory/v1/organizations"
     headers = {
         "Authorization": f"Zoho-oauthtoken {access_token}",
         "Content-Type": "application/json"
@@ -189,7 +189,7 @@ def fetch_object_for_each_id(base_url,access_token,organization_id,endpoint):
 def create_item_group(base_url, access_token, organization_id, item_group_data):
     """Creates a new item group in Zakya."""
     print("Creating new item group...")
-    return make_request("POST",base_url,  "itemgroups", access_token, organization_id, item_group_data)
+    return make_request("POST",base_url, "itemgroups", access_token, organization_id, item_group_data)
 
 def list_all_item_groups(base_url, access_token, organization_id):
     """Lists all item groups available in Zakya."""
@@ -435,12 +435,12 @@ def enable_payment_reminder(base_url, access_token, organization_id, invoice_id)
 def create_payment(base_url, access_token, organization_id, payment_data):
     """Creates a new customer payment in Zakya."""
     print("Creating new payment...")
-    return make_request("POST",base_url,  "customerpayments", access_token, organization_id, payment_data)
+    return make_request("POST",base_url,"/customerpayments", access_token, organization_id, payment_data)
 
 def list_all_payments(base_url, access_token, organization_id):
     """Lists all customer payments in Zakya."""
     print("Listing all payments...")
-    return make_request("GET",base_url,  "customerpayments", access_token, organization_id)
+    return make_request("GET",base_url,"/customerpayments", access_token, organization_id)
 
 def fetch_payment(base_url,  access_token, organization_id, payment_id):
     """Fetches details of a specific payment by its ID."""
@@ -455,7 +455,7 @@ def update_payment(base_url,  access_token, organization_id, payment_id, update_
 def delete_payment(base_url, access_token, organization_id, payment_id):
     """Deletes a customer payment from Zakya."""
     print(f"Deleting payment ID: {payment_id}...")
-    return make_request("DELETE",base_url,  f"customerpayments/{payment_id}", access_token, organization_id)
+    return make_request("DELETE",base_url,  f"/customerpayments/{payment_id}", access_token, organization_id)
 
 
 # Sales Returns Functions

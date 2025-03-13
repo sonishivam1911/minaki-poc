@@ -30,7 +30,7 @@ def process_transactions(txn, base_url, access_token, organization_id):
     txn = txn[pd.to_numeric(txn["RRN number"], errors="coerce").notna()]
     txn["RRN number"] = txn["RRN number"].astype(int)
     
-    payment_fetch = fetch_records_from_zakya(base_url, access_token, organization_id, 'customerpayments')
+    payment_fetch = fetch_records_from_zakya(base_url, access_token, organization_id, '/customerpayments')
     payment_data = extract_record_list(payment_fetch, 'customerpayments')
     payment_df = pd.DataFrame.from_records(payment_data)
     
@@ -43,7 +43,7 @@ def process_transactions(txn, base_url, access_token, organization_id):
     for _, row in txn.iterrows():
         reference_number = row["RRN number"]
         bank_charges = row["Total Fee(including Taxes)"] if not pd.isna(row["Total Fee(including Taxes)"]) else 0
-        settle_dt = pd.to_datetime(row["Settlement Date"], format="%d-%b-%y").strftime("%Y-%m-%d")
+        settle_dt = pd.to_datetime(row["Settlement Date"], format="%d-%b-%y", errors="coerce")
         ins_type = row["Instrument Type"]
         fd = row["Foreign/ Domestic"]
         card_cat = row["Card Category"]
@@ -51,6 +51,11 @@ def process_transactions(txn, base_url, access_token, organization_id):
         settle_ref = row["Bank reference number"]
         vpa = row["Payer VPA"]
         
+        if pd.notna(settle_dt):
+            settle_dt = settle_dt.strftime("%Y-%m-%d")
+        else:
+            settle_dt = None
+
         payment = payment_df[payment_df["reference_number"] == reference_number]
         
         if not payment.empty:

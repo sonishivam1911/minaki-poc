@@ -31,9 +31,10 @@ if uploaded_file:
     api_domain = st.session_state['api_domain'] if 'api_domain' in st.session_state else None
     if auth_code and access_token and api_domain:
         if st.button("Generate Invoice"):
-            invoice_template = process_taj_sales(taj_sales_df, invoice_date, st.session_state['api_domain'],
+            invoice_template = process_taj_sales(taj_sales_df, invoice_date, 
+                        st.session_state['api_domain'],
                         st.session_state['access_token'],
-                        st.session_state['organization_id'])
+                        60030670478)
 
             # Display processed DataFrame
             st.subheader("Processed Invoice Template")

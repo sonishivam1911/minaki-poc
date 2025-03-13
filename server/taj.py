@@ -199,8 +199,9 @@ async def create_products_and_sales_order(taj_sales_df, zakya_connection_object,
                             '/itemgroups',
                             product_data
                             )
+            item_id = response["item_group"]["items"][0]["item_id"]
             config["existing_sku_item_id_mapping"][sku] = response["item_group"]["items"][0]["item_id"]
-            logger.debug(f"response for creating product is {response["item_group"]["items"][0]["item_id"]}")
+            logger.debug(f"response for creating product is {item_id}")
             
         if party_doc_no in config["missing_sales_orders"]:
             
@@ -230,7 +231,7 @@ async def create_products_and_sales_order(taj_sales_df, zakya_connection_object,
                             salesorder_payload
                             )
         config["existing_salesorder_number_salesorder_id_mapping"][salesorder_number] = response["salesorder"]["salesorder_id"]
-        logger.debug(f"Response from creating sales order is : {response["salesorder"]["salesorder_id"]}")
+        # logger.debug(f"Response from creating sales order is : {response["salesorder"]["salesorder_id"]}")
 
 
     return config["existing_sku_item_id_mapping"]
