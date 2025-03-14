@@ -13,6 +13,7 @@ def on_click_create_sales_order(result,po_format):
         "access_token" : st.session_state['access_token'],
         "organization_id" : st.session_state['organization_id'],
     })
+    st.success("Sales order created successfully!")
 
 def main():
     st.title("PO PDF Processor")

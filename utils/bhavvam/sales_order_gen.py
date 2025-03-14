@@ -1,12 +1,12 @@
-import requests
+
 import pdfplumber
-import json
+from datetime import datetime
 import fitz 
 import re
 import pandas as pd
-from utils.zakya_api import list_all_sales_orders, create_sales_order,post_record_to_zakya
-from utils.zakya_api import (list_all_payments, update_payment, fetch_records_from_zakya, extract_record_list)
+from utils.zakya_api import post_record_to_zakya
 from utils.postgres_connector import crud
+from config.logger import logger
 
 fields = {
         "PO No": None,
@@ -137,6 +137,7 @@ def pdf_extract__po_details_aza(pdf_path):
                             "Partner SKU": product_id,
                             "Description": product_title,
                             "Size": size,
+                            "Order Source" : None,
                             "Quantity": quantity,
                             "Unit Price": cost,
                             "Other Costs": customization_charges,
@@ -158,13 +159,41 @@ def pdf_extract__po_details_aza(pdf_path):
     return fields
 
 
+def format_date_for_api(date_str):
+    try:
+        # Try to parse the date from the PDF - adjust formats as needed
+        # Common formats might include "DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"
+        for fmt in ["%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d.%m.%Y"]:
+            try:
+                parsed_date = datetime.strptime(date_str.strip(), fmt)
+                # Convert to the API-required format (ISO format)
+                return parsed_date.strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+        # If none of the formats worked, try a more relaxed approach
+        return date_str.strip()
+    except Exception as e:
+        print(f"Error formatting date {date_str}: {e}")
+        return date_str
+
+
 def process_sales_order(fields, customer_name, zakya_config):
     """Checks if a Sales Order exists for the given reference number and creates one if not."""
     mapping_product = crud.read_table("zakya_products")
     mapping_order = crud.read_table("zakya_sales_order")
     mapping_partner = crud.read_table("mapping__partner")
-    customer_id = mapping_partner[["Display Name"] == customer_name]["Contact ID"][0]
-    print(mapping_product)
+    logger.debug(f"mapping partner is : {mapping_partner}")
+    customer_matches = mapping_partner[mapping_partner["Display Name"] == customer_name]
+    logger.debug(f"customer matched is {customer_matches}")
+    if len(customer_matches) > 0:
+        customer_id = customer_matches["Contact ID"].iloc[0]
+        logger.debug(f"customer_id is {customer_id}")
+    # else:
+    #     print(f"No customer found with name: {customer_name}")
+    #     # Use a default or raise an exception
+    #     customer_id = default_customer_id     
+    # customer_id = mapping_partner[["Display Name"] == customer_name]["Contact ID"][0]
+    print(mapping_product.columns)
     # Step 2: Prepare lookup sets
     if isinstance(mapping_product, str):
         import json
@@ -174,9 +203,13 @@ def process_sales_order(fields, customer_name, zakya_config):
         mapping_product = pd.DataFrame(mapping_product.get("items", []))  # Adjust based on API response
     
     item_id = None
-    existing_skus = set(mapping_product["SKU"].astype(str).dropna())
-    if fields["SKU"] in existing_skus:
-       item_id = mapping_product[["SKU"].astype(str) == fields["SKU"]]["item_id"][0]
+    existing_skus = set(mapping_product["sku"].astype(str).dropna())
+    filtered_products = mapping_product[mapping_product["sku"] == fields["SKU"]]
+    if not filtered_products.empty:
+        item_id = filtered_products["item_id"].iloc[0]
+    else:
+        # Handle the case where no matching SKU was found
+        print(f"No product found with SKU: {fields['SKU']}")       
 
     reference_number = fields.get("PO No")
     if not reference_number:
@@ -184,20 +217,21 @@ def process_sales_order(fields, customer_name, zakya_config):
         return
     
     existing_orders = mapping_order
-    for order in existing_orders:
+    for _,order in existing_orders.iterrows():
+        logger.debug(f"order is {order}")
         if order.get("reference_number") == reference_number:
             print(f"Sales Order with reference number {reference_number} already exists.")
             return
     
     salesorder_payload = {
-        "customer_id": customer_id,
+        "customer_id": int(customer_id),
         "salesorder_number": reference_number,
-        "date": fields["PO Date"],
-        "shipment_date": fields["PO Delivery Date"],
+        "date": format_date_for_api(fields["PO Date"]),
+        "shipment_date": format_date_for_api(fields["PO Delivery Date"]),
         "reference_number": reference_number,
         "line_items": [
             {
-                "item_id": item_id if item_id else '',
+                "item_id": int(item_id) if item_id else '',
                 "description": f"PO: {fields["PO No"]} and PPUS Code: {fields["Partner SKU"]}",
                 "rate": int(fields["Unit Price"]),
                 "quantity": int(fields["Quantity"]),

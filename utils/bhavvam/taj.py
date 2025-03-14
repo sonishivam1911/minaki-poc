@@ -144,14 +144,15 @@ def process_taj_sales(taj_sales_df, invoice_date, base_url, access_token, organi
     for customer_id, data in invoices_payload.items():
         invoice_payload = {
             "customer_id": customer_id,
-            "invoice_number": invbr,
+            # "invoice_number": invbr,
             "date": invoice_date.strftime("%Y-%m-%d"),
             "payment_terms": 30,
             "exchange_rate": 1.0,
             "line_items": data["line_items"],
             "gst_no": gst,
             "gst_treatment": "business_gst",
-            "template_name": "Taj"
+            "template_name": "Taj",
+            "is_inclusive_tax": True,
         }
         invoice_response = create_invoice(base_url, access_token, organization_id, invoice_payload)
         invoice_summary.append({
@@ -159,7 +160,6 @@ def process_taj_sales(taj_sales_df, invoice_date, base_url, access_token, organi
             "invoice_number": invoice_response.get("invoice_number"),
             "customer_name": branch_name,
             "date": invoice_payload["date"],
-            "due_date": invoice_date.strftime("%Y-%m-%d"),
             "amount": sum(item["rate"] * item["quantity"] for item in line_items)
         })
     
