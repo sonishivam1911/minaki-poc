@@ -25,6 +25,3 @@ def create_xuping_sku(category_name):
     except Exception as e:
         logger.error(f"Error in create_sku: {e}")
         raise        
-
-def save_product_to_zakaya():
-    
