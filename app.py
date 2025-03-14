@@ -85,7 +85,7 @@ def token_authentication():
     token_data = get_access_token(auth_code=st.session_state['code'])
     print(f'token url is {token_data}')
     st.session_state['access_token'] = token_data["access_token"]
-    st.session_state['api_domain'] = token_data["api_domain"]
+    st.session_state['api_domain'] = "https://api.zakya.in"
     st.success("Authentication successful!")
     
 

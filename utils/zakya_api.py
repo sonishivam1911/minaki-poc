@@ -20,7 +20,7 @@ def get_authorization_url():
     Generate the authorization URL for Zakya login.
     """
     params = {
-        "scope": "ZohoInventory.FullAccess.all", 
+        "scope": "ZakyaApi.FullAccess.all", 
         "client_id": CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
         "response_type": "code",
