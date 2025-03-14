@@ -8,7 +8,7 @@ from collections import defaultdict
 from utils.postgres_connector import crud
 from config.logger import logger
 from schema.zakya_schemas.schema import ZakyaContacts,ZakyaSalesOrder, ZakyaProducts
-from utils.zakya_api import fetch_object_for_each_id, post_record_to_zakya
+from utils.zakya_api import fetch_object_for_each_id, post_record_to_zakya, fetch_record_from_zakya
 from queries.zakya import queries
 from config.constants import (
     customer_mapping_zakya_contacts
@@ -314,6 +314,9 @@ async def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
         })
     
     invoice_summary = []
+    print(fetch_record_from_zakya(zakya_connection_object["base_url"],
+            zakya_connection_object["access_token"],
+            zakya_connection_object["organization_id"], '/invoices/templates'))
     for customer_id, data in invoices_payload.items():
         invoice_payload = {
             "customer_id": customer_id,
@@ -324,7 +327,7 @@ async def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
             "line_items": data["line_items"],
             "gst_no": gst,
             "gst_treatment": "business_gst",
-            "template_name": "Taj"
+            "template_id": 1923531000000916001
         }
         logger.debug(f"Invoice payload is {invoice_payload}")
         invoice_response = post_record_to_zakya(
@@ -333,7 +336,6 @@ async def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
                 zakya_connection_object['organization_id'],
                 '/invoices',
                 invoice_payload
-
             )
         logger.debug(f"Invoice Response is  : {invoice_response}")
         invoice_summary.append({
@@ -341,7 +343,7 @@ async def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
             "invoice_number": invoice_response.get("invoice_number"),
             "customer_name": branch_name,
             "date": invoice_payload["date"],
-            "due_date": ['invoice_date'].strftime("%Y-%m-%d"),
+            "due_date": invoice_response.get("due_date"),
             "amount": sum(item["rate"] * item["quantity"] for item in data["line_items"])
         })
     

@@ -2,7 +2,7 @@ import pandas as pd
 import requests
 import logging
 import time
-from utils.zakya_api import (list_all_payments, update_payment, fetch_records_from_zakya, extract_record_list)
+from utils.zakya_api import (put_record_to_zakya, fetch_records_from_zakya, extract_record_list)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -48,7 +48,6 @@ def process_transactions(txn, base_url, access_token, organization_id):
         fd = row["Foreign/ Domestic"]
         card_cat = row["Card Category"]
         card_net = row["Card network"]
-        settle_ref = row["Bank reference number"]
         vpa = row["Payer VPA"]
         
         payment = payment_df[payment_df["reference_number"] == reference_number]
@@ -57,25 +56,64 @@ def process_transactions(txn, base_url, access_token, organization_id):
             print(payment)
             payment_id = payment.iloc[0]["payment_id"]
             update_data = {
+                "bank_charges": bank_charges,
                 "custom_fields": [
-                    # {"api_name": "settlement_date", "value": settle_dt},
-                    {'label': 'Settlement Date', 'api_name': 'cf_settlement_date', 'search_entity': 'customer_payment', 'placeholder': 'cf_settlement_date', 'value': settle_dt.strftime("%Y-%m-%d")},
-                    {'label': 'Status', 'api_name': 'cf_status', 'search_entity': 'customer_payment', 'placeholder': 'cf_status', 'value': 'Settled'}
-                    # {"name": "instrument_type", "value": ins_type},
-                    # {"name": "f_d", "value": fd},
-                    # {"name": "card_category", "value": card_cat},
-                    # {"name": "card_network", "value": card_net},
-                    # {"name": "settlement_reference_number", "value": settle_ref},
-                    # {"name": "vpa", "value": vpa
-                    #  }
-                ],
-                "bank_charges": bank_charges
+                    {
+                        "index": 1,
+                        "label": "Status",
+                        "api_name": "cf_status",
+                        "placeholder": "cf_status",
+                        "value": "Settled"
+                    },
+                    {
+                        "index": 2,
+                        "label": "Settlement Date",
+                        "api_name": "cf_settlement_date",
+                        "placeholder": "cf_settlement_date",
+                        "value": settle_dt
+                    },
+                    {
+                        "index": 3,
+                        "label": "Instrument Type",
+                        "api_name": "cf_instrument_type",
+                        "value": ins_type,
+                        "placeholder": "cf_instrument_type"
+                    },
+                    {
+                        "index": 4,
+                        "label": "F/D",
+                        "api_name": "cf_f_d",
+                        "placeholder": "cf_f_d",
+                        "value": fd
+                    },
+                    {
+                        "index": 5,
+                        "label": "Card Category",
+                        "api_name": "cf_card_category",
+                        "placeholder": "cf_card_category",
+                        "value": card_cat
+                    },
+                    {
+                        "index": 6,
+                        "label": "Card network",
+                        "api_name": "cf_card_network",
+                        "placeholder": "cf_card_network",
+                        "value": card_net
+                    },
+                    {
+                        "index": 7,
+                        "label": "VPA",
+                        "api_name": "cf_vpa",
+                        "placeholder": "cf_vpa",
+                        "value": vpa
+                    }
+                ]
             }
 
             # 🔥 Sanitize update_data before making the request
             update_data = sanitize_json(update_data)
 
-            response = update_payment(base_url, access_token, organization_id, payment_id, update_data)
+            response = put_record_to_zakya(base_url, access_token, organization_id,'customerpayments', payment_id, update_data)
             status = "Success" if response and response.get("code") == 0 else "Failed"
             logging.info(f"Payment ID {payment_id}: {status}")
             print(response)
