@@ -33,6 +33,7 @@ opencv-python-headless
 openpyxl
 packaging
 pandas
+PyMuPDF
 pfzy
 pillow
 prompt_toolkit
