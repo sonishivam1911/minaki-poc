@@ -221,8 +221,8 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
 
     if "/salesorders" in endpoint:
         params['ignore_auto_number_generation'] = True
-    # elif "/invoices" in endpoint:
-    #     params['ignore_auto_number_generation'] = True
+    elif "/invoices" in endpoint:
+        params['ignore_auto_number_generation'] = True
 
     response = requests.post(
         url=url,

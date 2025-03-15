@@ -42,8 +42,10 @@ def logout():
 
 def main():
     """Main application logic."""
+
+    zakya_auth_df = crud.read_table("zakya_auth")
     
-    if "refresh_token" in st.session_state:
+    if not zakya_auth_df.empty:
         try:
             set_access_token_via_refresh_token()
         except Exception as e:
