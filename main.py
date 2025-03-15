@@ -584,8 +584,11 @@ def load_customer_data():
         required_columns = ["contact_name", "gst_no", "place_of_contact"]
 
         customer_data_df = crud.read_table("zakya_contacts")
-        customer_data_df = customer_data_df[required_columns]
-        return customer_data_df
+        customer_data_df = customer_data_df[customer_data_df['gst_treatment'] == 'business_gst']
+        aza_filter = customer_data_df['contact_name'].str.match('^AZA', case=False)
+        aza_contacts = customer_data_df[aza_filter]        
+        aza_contacts = aza_contacts[required_columns]
+        return aza_contacts
     except Exception as e:
         raise ValueError(f"Error loading customer data: {e}")
     
@@ -638,7 +641,7 @@ def create_whereclause_fetch_data(pydantic_model, filter_dict, query):
 
 def fetch_customer_name_list():
     customer_df = load_customer_data()
-    return customer_df["Display Name"].unique()
+    return customer_df["contact_name"].unique()
 
 
 def find_missing_products(style):

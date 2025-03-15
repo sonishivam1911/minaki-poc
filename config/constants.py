@@ -1,5 +1,6 @@
 customer_mapping_zakya_contacts = {
-    'branch_name' : 'contact_name'
+    'branch_name' : 'contact_name',
+    'display_name' : 'contact_name'
 }
 
 salesorder_mapping_zakya = {
