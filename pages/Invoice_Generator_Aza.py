@@ -15,15 +15,6 @@ def process_aza_upload(uploaded_file):
     Returns:
         tuple: (designer_name, designer_city, dataframe) where dataframe contains the product data
     """
-    # City code mapping
-    city_codes = {
-        'M': 'Mumbai',
-        'D': 'Delhi',
-        'K': 'Kolkata',
-        'H': 'Hyderabad',
-        'G': 'Gurgaon',
-        'B': 'Bangalore'
-    }
     
     try:
         # Read the Excel file without specifying headers
