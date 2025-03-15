@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import os
 from dotenv import load_dotenv
 
 from utils.zakya_api import get_access_token, get_authorization_url, fetch_organizations
@@ -44,6 +45,7 @@ def main():
     """Main application logic."""
 
     zakya_auth_df = crud.read_table("zakya_auth")
+    zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
     
     if not zakya_auth_df.empty:
         try:
@@ -142,6 +144,7 @@ def token_authentication():
     # Remove access_token for security before storing
     token_data_for_storage = token_data.copy()
     token_data_for_storage.pop('access_token', None)
+    token_data_for_storage["env"]=os.getenv("env")
     
     # Convert to DataFrame and store in database
     # Use consistent table name - zakya_auth
