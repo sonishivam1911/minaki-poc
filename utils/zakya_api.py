@@ -55,9 +55,8 @@ def get_access_token(auth_code=None, refresh_token=None):
     else:
         raise ValueError("Either auth_code or refresh_token must be provided.")
 
-    print(f'data is : {payload}')
+    print(f' url is TOKEN_URL and data is : {payload}')
     response = requests.post(TOKEN_URL, data=payload)
-    print(f"reponse is : {response.json()}")
     response.raise_for_status()
     return response.json()
 
@@ -119,18 +118,9 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
         if not page_context['has_more_page']:
             return all_data
             
-        
         params['page'] = page_context['page'] + 1
 
-        if response.status_code == 200:
-            data = response.json()
-            if "items" in data:  # Adjust according to the API response structure
-                all_data = pd.DataFrame(data["items"])
-                return all_data
-            else:
-                raise Exception("Unexpected response structure. 'items' key not found.")
-        else:
-            raise Exception(f"Failed to fetch data: {response.text}")
+    return []
     
 def retrieve_record_from_zakya(base_url,access_token,organization_id,endpoint):
     """
