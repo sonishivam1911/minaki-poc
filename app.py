@@ -85,7 +85,7 @@ def set_access_token_via_refresh_token():
     refresh_token_data = get_access_token(refresh_token=refresh_token)
     
     if 'access_token' not in refresh_token_data:
-        logger.error("Failed to get access token from refresh token")
+        logger.error("Failed to get access token from refresh token {refresh_token_data}")
         raise Exception("Failed to refresh token")
     
     st.session_state['access_token'] = refresh_token_data['access_token']
