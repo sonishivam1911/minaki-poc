@@ -145,12 +145,41 @@ def token_authentication():
     token_data_for_storage = token_data.copy()
     token_data_for_storage.pop('access_token', None)
     token_data_for_storage["env"]=os.getenv("env")
+    current_env = os.getenv("env")
+    # Check if table exists and if there's an entry for this environment
+    zakya_auth_df = crud.read_table("zakya_auth")    
     
-    # Convert to DataFrame and store in database
-    # Use consistent table name - zakya_auth
-    zakya_auth_df = pd.DataFrame([token_data_for_storage])
-    crud.create_table("zakya_auth", zakya_auth_df)
-    
+    if zakya_auth_df is not None and not zakya_auth_df.empty:
+        # Check if there's already an entry for this environment
+        env_entries = zakya_auth_df[zakya_auth_df['env'] == current_env]
+        
+        if not env_entries.empty:
+            # Update existing entry for this environment
+            set_clauses = []
+            for key, value in token_data_for_storage.items():
+                if key != 'env':  # Skip env as it's in the condition
+                    if isinstance(value, str):
+                        set_clauses.append(f"{key} = '{value}'")
+                    else:
+                        set_clauses.append(f"{key} = {value}")
+            
+            set_clause = ", ".join(set_clauses)
+            condition = f"env = '{current_env}'"
+            
+            result = crud.update_table("zakya_auth", set_clause, condition)
+            logger.info(f"Updated token data for environment {current_env}: {result}")
+        else:
+            # Add a new row for this environment
+            new_row_df = pd.DataFrame([token_data_for_storage])
+            combined_df = pd.concat([zakya_auth_df, new_row_df], ignore_index=True)
+            crud.create_table("zakya_auth", combined_df)
+            logger.info(f"Added new row for environment: {current_env}")
+    else:
+        # Create new table with first row
+        new_table_df = pd.DataFrame([token_data_for_storage])
+        crud.create_table("zakya_auth", new_table_df)
+        logger.info(f"Created new table with row for environment: {current_env}")
+
     # Set API domain
     st.session_state['api_domain'] = 'https://api.zakya.in/'
     
