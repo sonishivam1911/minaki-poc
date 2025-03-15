@@ -3,6 +3,7 @@ import pandas as pd
 import os
 from dotenv import load_dotenv
 
+from server.reports.invoice_reports import create_invoice_mapping, create_salesorder_mapping
 from utils.zakya_api import get_access_token, get_authorization_url, fetch_organizations
 from utils.postgres_connector import crud
 from config.logger import logger
@@ -67,13 +68,26 @@ def main():
                 else:
                     logger.error("No organizations found in response")
                     st.error("No organizations found. Please check your Zakya account.")
+            
+            # invoice_mapping_df = create_invoice_mapping()
+            # st.header("Invoice Items Mapping Created")
+            # st.dataframe(invoice_mapping_df)
+
+            # salesorder_mapping_df = create_salesorder_mapping()
+            # st.header("Sales Order Item Mapping Created")
+            # st.dataframe(salesorder_mapping_df)
+
+
     except Exception as e:
         logger.error(f"Error fetching organizations: {e}")
         st.error("Error connecting to Zakya. Please check your connection and try again.")
 
+
+
 def set_access_token_via_refresh_token():
     # Use consistent table name - zakya_auth
     zakya_auth_df = crud.read_table("zakya_auth")
+    zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
     
     if zakya_auth_df is None or zakya_auth_df.empty:
         logger.error("No authentication data found in database")
