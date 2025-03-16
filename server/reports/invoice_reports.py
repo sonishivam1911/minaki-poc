@@ -13,15 +13,15 @@ def extract_record_list(input_data,key):
     return records
 
 def fetch_records_from_zakya_in_df_format(endpoint):
-    invoices_data = fetch_records_from_zakya(
+    object_data = fetch_records_from_zakya(
         st.session_state['api_domain'],
         st.session_state['access_token'],
         st.session_state['organization_id'],
         f'/{endpoint}'                  
 )
-    invoices_record = extract_record_list(invoices_data,f"{endpoint}")
-    invoices_data = pd.DataFrame.from_records(invoices_record)
-    return invoices_data
+    object_data = extract_record_list(object_data,f"{endpoint}")
+    object_data = pd.DataFrame.from_records(object_data)
+    return object_data
 
 
 def create_invoice_mapping():

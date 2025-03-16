@@ -8,6 +8,8 @@ SR_EMAIL = os.getenv("SR_EMAIL")
 SR_PASSWORD = os.getenv("SR_PASSWORD")
 
 
+load_dotenv()
+
 def shiprocket_auth():
     url = "https://apiv2.shiprocket.in/v1/external/auth/login"
     payload = json.dumps({
@@ -72,7 +74,7 @@ def create_sr_forward(token, order_data, length, breadth, height, weight,courier
     'Authorization': f'Bearer {token}'
     }
     response = requests.request("POST", url, headers=headers, data=payload)
-    return response.text
+    return response.json()
 
 def generate_pickup(token, shipment_id):
     url = "https://apiv2.shiprocket.in/v1/external/courier/generate/pickup"
@@ -82,7 +84,7 @@ def generate_pickup(token, shipment_id):
     'Authorization': f'Bearer {token}'
     }
     response = requests.request("POST", url, headers=headers, data=payload)
-    return response.text
+    return response.json()
 
 def generate_label(token, shipment_ids):
     url = "https://apiv2.shiprocket.in/v1/external/courier/generate/label"
@@ -92,7 +94,7 @@ def generate_label(token, shipment_ids):
     'Authorization': f'Bearer {token}'
     }
     response = requests.request("POST", url, headers=headers, data=payload)
-    return response.text
+    return response.json()
 
 def generate_manifest(token, shipment_ids):
     url = "https://apiv2.shiprocket.in/v1/external/manifests/generate"
@@ -102,4 +104,23 @@ def generate_manifest(token, shipment_ids):
     'Authorization': f'Bearer {token}'
     }
     response = requests.request("POST", url, headers=headers, data=payload)
-    return response.text
+    return response.json()
+
+
+def list_couriers(token):
+    """
+    Get list of available couriers from Shiprocket
+    
+    Args:
+        token (str): Authentication token from shiprocket_auth()
+    
+    Returns:
+        dict: JSON response containing list of available couriers and their details
+    """
+    url = "https://apiv2.shiprocket.in/v1/external/courier/courierListWithCounts"
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {token}'
+    }
+    response = requests.request("GET", url, headers=headers)
+    return response.json()
