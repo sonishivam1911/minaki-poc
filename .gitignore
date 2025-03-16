@@ -9,3 +9,4 @@ __pycache__/
 *.log
 *.zip
 *.jpg
+.qodo
