@@ -8,7 +8,7 @@ from collections import defaultdict
 from utils.postgres_connector import crud
 from config.logger import logger
 from schema.zakya_schemas.schema import ZakyaContacts,ZakyaSalesOrder, ZakyaProducts
-from utils.zakya_api import fetch_object_for_each_id, post_record_to_zakya, fetch_record_from_zakya
+from utils.zakya_api import fetch_object_for_each_id, post_record_to_zakya
 from queries.zakya import queries
 from config.constants import (
     customer_mapping_zakya_contacts
@@ -310,13 +310,11 @@ async def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
             "name": prod_name,
             "description": prod_name,
             "rate": total,
-            "quantity": quantity
+            "quantity": quantity,
+            "hsn_or_sac": hsn_code
         })
     
     invoice_summary = []
-    print(fetch_record_from_zakya(zakya_connection_object["base_url"],
-            zakya_connection_object["access_token"],
-            zakya_connection_object["organization_id"], '/invoices/templates'))
     for customer_id, data in invoices_payload.items():
         invoice_payload = {
             "customer_id": customer_id,
@@ -334,7 +332,7 @@ async def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
                 zakya_connection_object['base_url'],
                 zakya_connection_object['access_token'],
                 zakya_connection_object['organization_id'],
-                '/invoices',
+                'invoices',
                 invoice_payload
             )
         logger.debug(f"Invoice Response is  : {invoice_response}")

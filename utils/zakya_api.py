@@ -93,7 +93,7 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
     """
     Fetch inventory items from Zakya API.
     """
-    url = f"{base_url}inventory/v1{endpoint}"  
+    url = f"{base_url}inventory/v1/{endpoint}"  
     headers = {
         'Authorization': f"Zoho-oauthtoken {access_token}",
         'Content-Type': 'application/json'
@@ -118,19 +118,10 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
 
         if not page_context['has_more_page']:
             return all_data
-            
         
         params['page'] = page_context['page'] + 1
-
-        if response.status_code == 200:
-            data = response.json()
-            if "items" in data:  # Adjust according to the API response structure
-                all_data = pd.DataFrame(data["items"])
-                return all_data
-            else:
-                raise Exception("Unexpected response structure. 'items' key not found.")
-        else:
-            raise Exception(f"Failed to fetch data: {response.text}")
+    
+    return []
     
 def retrieve_record_from_zakya(base_url,access_token,organization_id,endpoint):
     """

@@ -51,19 +51,34 @@ def main():
         st.session_state['code'] = code
 
         if 'access_token' not in st.session_state:
-            try: 
-                token_authentication()
-            except KeyError as e:
-                print(f"Error getting access token: Missing key {e} in token response. Check your Zakya API credentials/setup.")
-                # st.error(f"Error getting access token: Missing key {e} in token response. Check your Zakya API credentials/setup.")
-                del st.session_state['code']  
-                fetch_zakya_code()
-                
-            except Exception as e:
-                print(f"An unexpected error occurred during authentication: {e}") 
-                # st.error(f"An unexpected error occurred during authentication: {e}")
-                del st.session_state['code']  
-                fetch_zakya_code()
+            if 'refresh_token' in st.session_state:
+                try:
+                    refresh_token_authentication()
+                except KeyError as e:
+                    print(f"Error getting access token: Missing key {e} in token response. Check your Zakya API credentials/setup.")
+                    # st.error(f"Error getting access token: Missing key {e} in token response. Check your Zakya API credentials/setup.")
+                    del st.session_state['code']  
+                    fetch_zakya_code()
+                    
+                except Exception as e:
+                    print(f"An unexpected error occurred during authentication: {e}") 
+                    # st.error(f"An unexpected error occurred during authentication: {e}")
+                    del st.session_state['code']  
+                    fetch_zakya_code()
+            else:
+                try: 
+                    token_authentication()
+                except KeyError as e:
+                    print(f"Error getting access token: Missing key {e} in token response. Check your Zakya API credentials/setup.")
+                    # st.error(f"Error getting access token: Missing key {e} in token response. Check your Zakya API credentials/setup.")
+                    del st.session_state['code']  
+                    fetch_zakya_code()
+                    
+                except Exception as e:
+                    print(f"An unexpected error occurred during authentication: {e}") 
+                    # st.error(f"An unexpected error occurred during authentication: {e}")
+                    del st.session_state['code']  
+                    fetch_zakya_code()
 
         # Fetch and display organizations
         
@@ -83,6 +98,14 @@ def fetch_zakya_code():
 
 def token_authentication():
     token_data = get_access_token(auth_code=st.session_state['code'])
+    print(f'token url is {token_data}')
+    st.session_state['access_token'] = token_data["access_token"]
+    st.session_state['refresh_token'] = token_data["refresh_token"]
+    st.session_state['api_domain'] = 'https://api.zakya.in/'
+    st.success("Authentication successful!")
+
+def refresh_token_authentication():
+    token_data = get_access_token(refresh_token=st.session_state['refresh_token'])
     print(f'token url is {token_data}')
     st.session_state['access_token'] = token_data["access_token"]
     st.session_state['api_domain'] = 'https://api.zakya.in/'

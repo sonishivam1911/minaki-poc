@@ -20,6 +20,7 @@ def zakya_integration_function():
     st.title("MINAKI Intell")
         # Check if authorization code is present in the URL
     auth_code = st.session_state['code'] if 'code' in st.session_state else None
+    refresh_token = st.session_state['refresh_token'] if 'refresh_token' in st.session_state else None
     access_token = st.session_state['access_token'] if 'access_token' in st.session_state else None
     api_domain = st.session_state['api_domain'] if 'api_domain' in st.session_state else None
     if auth_code and access_token and api_domain:
@@ -48,7 +49,7 @@ def zakya_integration_function():
                         st.session_state['api_domain'],
                         st.session_state['access_token'],
                         st.session_state['organization_id'],
-                        '/itemgroups'
+                        'itemgroups'
                 )
                 item_groups_record = extract_record_list(item_groups_data,"itemgroups")
                 show_preview = st.checkbox("Show/Hide Item Groups",value=True)
@@ -65,7 +66,7 @@ def zakya_integration_function():
                         st.session_state['api_domain'],
                         st.session_state['access_token'],
                         st.session_state['organization_id'],
-                        '/items'                
+                        'items'                
                 )
                 items_record = extract_record_list(items_data,"items")
                 show_preview = st.checkbox("Show/Hide Products",value=True)
@@ -82,7 +83,7 @@ def zakya_integration_function():
                         st.session_state['api_domain'],
                         st.session_state['access_token'],
                         st.session_state['organization_id'],
-                        '/salesorders'                  
+                        'salesorders'                  
                 )
                 sales_order_record = extract_record_list(sales_order_data,"salesorders")
                 show_preview = st.checkbox("Show/Hide Sales Order",value=True)
@@ -101,7 +102,7 @@ def zakya_integration_function():
                         st.session_state['api_domain'],
                         st.session_state['access_token'],
                         st.session_state['organization_id'],
-                        '/transferorders'                  
+                        'transferorders'                  
                 )
                 print(f"Output is : {transfer_order_data}")
                 transfer_order_records = extract_record_list(transfer_order_data,"transfer_orders")
@@ -120,7 +121,7 @@ def zakya_integration_function():
                         st.session_state['api_domain'],
                         st.session_state['access_token'],
                         st.session_state['organization_id'],
-                        '/invoices'                  
+                        'invoices'                  
                 )
                 invoices_record = extract_record_list(invoices_data,"invoices")
                 show_preview = st.checkbox("Show/Hide Invoices",value=True)
@@ -138,7 +139,7 @@ def zakya_integration_function():
                         st.session_state['api_domain'],
                         st.session_state['access_token'],
                         st.session_state['organization_id'],
-                        '/pricebooks'                  
+                        'pricebooks'                  
                 )
                 pricebook_record = extract_record_list(price_books_data,"pricebooks")
                 show_preview = st.checkbox("Show/Hide Price Books",value=True)
@@ -155,7 +156,7 @@ def zakya_integration_function():
                         st.session_state['api_domain'],
                         st.session_state['access_token'],
                         st.session_state['organization_id'],
-                        '/settings/taxes'                  
+                        'settings/taxes'                  
                 )
                 tax_record = extract_record_list(tax_data,"taxes")
                 show_preview = st.checkbox("Show/Hide Price Books",value=True)
@@ -175,11 +176,9 @@ def display_each_selected_row(invoice_id):
                                 api_domain=st.session_state['api_domain'],
                                 access_token=st.session_state['access_token'],
                                 organization_id=st.session_state['organization_id'],
-                                endpoint=f"/invoices/{invoice_id}"
+                                endpoint=f"invoices/{invoice_id}"
                             )
                             
-
-                            # 5. Display the details in an expander (simulating a popup)
     with st.expander(f"Invoice {invoice_id} Details",expanded=True):
                                 # You can display raw JSON or form a DataFrame if needed
         st.json(details)

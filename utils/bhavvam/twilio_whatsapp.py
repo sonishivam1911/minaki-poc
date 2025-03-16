@@ -16,11 +16,15 @@ auth_token = os.environ["TWILIO_AUTH_TOKEN"]
 client = Client(account_sid, auth_token)
 
 message = client.messages.create(
-    content_sid="HX93ec366250a5fd6fbfe9aad915fd42ab",
-    to="whatsapp:+18551234567",
-    from_="whatsapp:+15005550006",
-    content_variables=json.dumps({"1": "Name"}),
-    messaging_service_sid="MGXXXXXXXX",
+    content_sid="HXdde08b3177f7d0575d227a51ec1dfa49",
+    to="whatsapp:+919810690118",
+    from_="whatsapp:+15557179136",
+    content_variables=json.dumps({"Customer Name": "Shivam",
+                                  "Invoice_Number": "MN/INV0500",
+                                  "Total_Amount": "₹7,200",
+                                  "Store_Name": "*This is an example of programmatic messages capabilities of MINAKI Intell*",
+                                  "Purchase_Date": "8 Mar 2025"}),
+    messaging_service_sid="MG039514c4da7617fa5532629f358a1057"
 )
 
 print(message.body)
