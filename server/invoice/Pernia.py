@@ -5,8 +5,8 @@ from utils.zakya_api import post_record_to_zakya
 from config.logger import logger
 
 
-class AzaInvoiceProcessor(InvoiceProcessor):
-    """Invoice processor for Aza vendor."""
+class PerniaInvoiceProcessor(InvoiceProcessor):
+    """Invoice processor for Pernia vendor."""
     
     def __init__(self, sales_df, invoice_date, zakya_connection_object, customer_name):
         """Initialize with Aza-specific parameters."""
