@@ -55,9 +55,8 @@ def get_access_token(auth_code=None, refresh_token=None):
     else:
         raise ValueError("Either auth_code or refresh_token must be provided.")
 
-    print(f'data is : {payload}')
+    print(f'url is {TOKEN_URL} and data is : {payload}')
     response = requests.post(TOKEN_URL, data=payload)
-    print(f"reponse is : {response.json()}")
     response.raise_for_status()
     return response.json()
 
@@ -118,9 +117,9 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
 
         if not page_context['has_more_page']:
             return all_data
-        
+            
         params['page'] = page_context['page'] + 1
-    
+
     return []
     
 def retrieve_record_from_zakya(base_url,access_token,organization_id,endpoint):
@@ -222,8 +221,8 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
 
     if "/salesorders" in endpoint:
         params['ignore_auto_number_generation'] = True
-    # elif "/invoices" in endpoint:
-    #     params['ignore_auto_number_generation'] = True
+    elif "/invoices" in endpoint:
+        params['ignore_auto_number_generation'] = True
 
     response = requests.post(
         url=url,
@@ -246,6 +245,68 @@ def put_record_to_zakya(base_url, access_token, organization_id, endpoint, txn_i
 
     params = {
         'organization_id': organization_id,
+    }
+
+    response = requests.put(
+        url=url,
+        headers=headers,
+        params=params,
+        json=payload
+    )
+    print(response.text)
+    response.raise_for_status()  # Raise an error for bad responses
+    return response.json() 
+
+
+def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payload):
+    """
+    Send a POST request to Zakya API to create a new record.
+    
+    :param base_url: Base URL of the Zakya API.
+    :param access_token: OAuth access token for authentication.
+    :param organization_id: ID of the organization in Zakya.
+    :param endpoint: API endpoint for the request (e.g., "/invoices").
+    :param payload: Dictionary containing the data to be sent in the request.
+    :return: JSON response from the API.
+    """
+    url = f"{base_url}inventory/v1/{endpoint}"
+    
+    headers = {
+        'Authorization': f"Zoho-oauthtoken {access_token}",
+        'Content-Type': 'application/json'
+    }
+
+    params = {
+        'organization_id': organization_id,
+    }
+
+    if "/salesorders" in endpoint:
+        params['ignore_auto_number_generation'] = True
+    elif "/invoices" in endpoint:
+        params['ignore_auto_number_generation'] = True
+
+    response = requests.post(
+        url=url,
+        headers=headers,
+        params=params,
+        json=payload
+    )
+    print(response.text)
+    response.raise_for_status()  # Raise an error for bad responses
+    return response.json() 
+
+
+def create_return(base_url, access_token, organization_id, txn_id, payload):
+    url = f"{base_url}inventory/v1/salesreturns"
+    
+    headers = {
+        'Authorization': f"Zoho-oauthtoken {access_token}",
+        'Content-Type': 'application/json'
+    }
+
+    params = {
+        'organization_id': organization_id,
+        'salesorder_id': txn_id
     }
 
     response = requests.put(

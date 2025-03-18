@@ -121,3 +121,7 @@ taj_rtv_data = extract_taj_rtv_details(pdf_path)
 
 # Print extracted data as JSON
 print(json.dumps(taj_rtv_data, indent=4))
+
+
+def process_taj_rtv(return_data):
+    

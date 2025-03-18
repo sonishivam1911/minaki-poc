@@ -1,12 +1,12 @@
-import requests
+
 import pdfplumber
-import json
+from datetime import datetime
 import fitz 
 import re
 import pandas as pd
-from utils.zakya_api import list_all_sales_orders, create_sales_order
-from utils.zakya_api import (list_all_payments, update_payment, fetch_records_from_zakya, extract_record_list)
+from utils.zakya_api import post_record_to_zakya
 from utils.postgres_connector import crud
+from config.logger import logger
 
 fields = {
         "PO No": None,
@@ -22,7 +22,7 @@ fields = {
         "Other Costs": None,
         "Total": None,
         "Size": None,
-        "Product Link": None
+        "Product Link": None,
     }
 
 def pdf_extract__po_details_ppus(pdf_path):
@@ -132,17 +132,20 @@ def pdf_extract__po_details_aza(pdf_path):
                         j += 4
 
                         # Store extracted product details
-                        fields.append({
+                        fields_temp = {
                             "SKU": designer_code,
                             "Partner SKU": product_id,
                             "Description": product_title,
                             "Size": size,
+                            "Order Source" : None,
                             "Quantity": quantity,
                             "Unit Price": cost,
                             "Other Costs": customization_charges,
                             "Total": total_cost,
                             "Product Link": None
-                        })
+                        }
+
+                        fields = {**fields, **fields_temp}
 
                 j += 1  # Move to the next product entry
 
@@ -156,12 +159,41 @@ def pdf_extract__po_details_aza(pdf_path):
     return fields
 
 
-def process_sales_order(fields, cust, base_url, access_token, organization_id):
+def format_date_for_api(date_str):
+    try:
+        # Try to parse the date from the PDF - adjust formats as needed
+        # Common formats might include "DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"
+        for fmt in ["%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d.%m.%Y"]:
+            try:
+                parsed_date = datetime.strptime(date_str.strip(), fmt)
+                # Convert to the API-required format (ISO format)
+                return parsed_date.strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+        # If none of the formats worked, try a more relaxed approach
+        return date_str.strip()
+    except Exception as e:
+        print(f"Error formatting date {date_str}: {e}")
+        return date_str
+
+
+def process_sales_order(fields, customer_name, zakya_config):
     """Checks if a Sales Order exists for the given reference number and creates one if not."""
-    mapping_product = crud.read_table("mapping__product")
-    mapping_order = crud.read_table("mapping__order")
+    mapping_product = crud.read_table("zakya_products")
+    mapping_order = crud.read_table("zakya_sales_order")
     mapping_partner = crud.read_table("mapping__partner")
-    print(mapping_product)
+    logger.debug(f"mapping partner is : {mapping_partner}")
+    customer_matches = mapping_partner[mapping_partner["Display Name"] == customer_name]
+    logger.debug(f"customer matched is {customer_matches}")
+    if len(customer_matches) > 0:
+        customer_id = customer_matches["Contact ID"].iloc[0]
+        logger.debug(f"customer_id is {customer_id}")
+    # else:
+    #     print(f"No customer found with name: {customer_name}")
+    #     # Use a default or raise an exception
+    #     customer_id = default_customer_id     
+    # customer_id = mapping_partner[["Display Name"] == customer_name]["Contact ID"][0]
+    print(mapping_product.columns)
     # Step 2: Prepare lookup sets
     if isinstance(mapping_product, str):
         import json
@@ -169,66 +201,82 @@ def process_sales_order(fields, cust, base_url, access_token, organization_id):
 
     if isinstance(mapping_product, dict):
         mapping_product = pd.DataFrame(mapping_product.get("items", []))  # Adjust based on API response
+    
+    item_id = None
+    existing_skus = set(mapping_product["sku"].astype(str).dropna())
+    filtered_products = mapping_product[mapping_product["sku"] == fields["SKU"]]
+    if not filtered_products.empty:
+        item_id = filtered_products["item_id"].iloc[0]
+    else:
+        # Handle the case where no matching SKU was found
+        print(f"No product found with SKU: {fields['SKU']}")       
 
-    existing_skus = set(mapping_product["SKU"].astype(str).dropna())
     reference_number = fields.get("PO No")
     if not reference_number:
         print("Reference number is missing!")
         return
+    
     existing_orders = mapping_order
-    for order in existing_orders:
+    for _,order in existing_orders.iterrows():
+        logger.debug(f"order is {order}")
         if order.get("reference_number") == reference_number:
             print(f"Sales Order with reference number {reference_number} already exists.")
             return
     
-    sales_order_data = {
-        "customer_id": 1923531000000170000,
+    salesorder_payload = {
+        "customer_id": int(customer_id),
         "salesorder_number": reference_number,
-        "date": fields["PO Date"],
-        "shipment_date": fields["PO Delivery Date"],
+        "date": format_date_for_api(fields["PO Date"]),
+        "shipment_date": format_date_for_api(fields["PO Delivery Date"]),
         "reference_number": reference_number,
         "line_items": [
             {
-                "item_id": po_item_id,
-                "description": f"PO: {po} and PPUS Code: {ppus_code}",
-                "rate": po_data["Unit Price"],
-                "quantity": po_data["Quantity"],
-                "item_total": po_data["Total"]
+                "item_id": int(item_id) if item_id else '',
+                "description": f"PO: {fields["PO No"]} and PPUS Code: {fields["Partner SKU"]}",
+                "rate": int(fields["Unit Price"]),
+                "quantity": int(fields["Quantity"]),
+                "item_total": int(fields["Total"])
             }
         ],
-        "notes": f"Order Source : {os}",
+        "notes": f"Order Source : {fields["Order Source"]}",
         "terms": "Terms and Conditions"
     }
     
     print(f"Creating a new Sales Order with reference number {reference_number}...")
-    create_sales_order(base_url, access_token, organization_id, sales_order_data)
+    post_record_to_zakya(
+        zakya_config['base_url'],
+        zakya_config['access_token'],  
+        zakya_config['organization_id'],
+        '/salesorders',
+        salesorder_payload
+    )    
 
 
-pdf_path = "po.pdf"
-po_data = pdf_extract__po_details_ppus(pdf_path)
-print(json.dumps(po_data, indent=4))
-po = po_data["PO No"]
-os = po_data["Order Source"]
-po_item_id = ""
-ppus_code  = po_data["SKU Code"]
-sales_order_data = {
-    "customer_id": 1923531000000170000,
-    "salesorder_number": po,
-    "date": po_data["PO Date"],
-    "shipment_date": po_data["PO Delivery Date"],
-    "reference_number": po,
-    "line_items": [
-        {
-            "item_id": po_item_id,
-            "description": f"PO: {po} and PPUS Code: {ppus_code}",
-            "rate": po_data["Unit Price"],
-            "quantity": po_data["Quantity"],
-            "item_total": po_data["Total"]
-        }
-    ],
-    "notes": f"Order Source : {os}",
-    "terms": "Terms and Conditions"
-}
+# pdf_path = "po.pdf"
+# po_data = pdf_extract__po_details_ppus(pdf_path)
+# print(json.dumps(po_data, indent=4))
+# po = po_data["PO No"]
+# os = po_data["Order Source"]
+# po_item_id = ""
+# ppus_code  = po_data["SKU Code"]
+# sales_order_data = {
+#     "customer_id": 1923531000000170000,
+#     "salesorder_number": po,
+#     "date": po_data["PO Date"],
+#     "shipment_date": po_data["PO Delivery Date"],
+#     "reference_number": po,
+#     "line_items": [
+#         {
+#             "item_id": po_item_id,
+#             "description": f"PO: {po} and PPUS Code: {ppus_code}",
+#             "rate": po_data["Unit Price"],
+#             "quantity": po_data["Quantity"],
+#             "item_total": po_data["Total"]
+#         }
+#     ],
+#     "notes": f"Order Source : {os}",
+#     "terms": "Terms and Conditions"
+# }
 
-# Process the sales order
-process_sales_order(sales_order_data)
+# # Process the sales order
+# process_sales_order(sales_order_data)
