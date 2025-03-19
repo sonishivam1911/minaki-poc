@@ -3,7 +3,7 @@ import pandas as pd
 import os
 from dotenv import load_dotenv
 
-from server.reports.invoice_reports import create_invoice_mapping, create_salesorder_mapping
+# from server.reports.invoice_reports import create_invoice_mapping, create_salesorder_mapping
 from utils.zakya_api import get_access_token, get_authorization_url, fetch_organizations
 from utils.postgres_connector import crud
 from config.logger import logger

@@ -162,13 +162,13 @@ def display_and_select_couriers(courier_df):
     st.dataframe(display_df)
     
     # Create courier selection dropdown
-    courier_options = courier_df['id'].tolist()
+    courier_options = courier_df['courier_company_id'].tolist()
     if not courier_options:
         return None
     
     def format_courier_option(courier_id):
         """Format the courier option for display in the selectbox"""
-        courier_row = courier_df[courier_df['id'] == courier_id]
+        courier_row = courier_df[courier_df['courier_company_id'] == courier_id]
         courier_name = courier_row['courier_name'].iloc[0]
         rate = courier_row['rate'].iloc[0]
         etd = courier_row['etd'].iloc[0]
