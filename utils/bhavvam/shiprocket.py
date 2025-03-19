@@ -87,14 +87,17 @@ def create_sr_forward(params):
     # Use provided contact person or get from order data
     if contact_person:
         billing_name = contact_person.get("name")
+        billing_last_name = contact_person.get("name").split(" ")[1]
         billing_email = contact_person.get("email")
         billing_phone = contact_person.get("phone")
     elif order_data.get("contact_persons") and len(order_data["contact_persons"]) > 0:
         billing_name = order_data["customer_name"]
+        billing_last_name = order_data["customer_name"].split(" ")[1]
         billing_email = order_data["contact_persons"][0].get("email", "")
         billing_phone = order_data["contact_persons"][0].get("phone", "")
     else:
         billing_name = order_data["customer_name"]
+        billing_last_name = ""
         billing_email = ""
         billing_phone = ""
 
@@ -103,6 +106,7 @@ def create_sr_forward(params):
         "order_id": order_data["salesorder_number"],
         "order_date": order_data["date"],
         "billing_customer_name": billing_name,
+        "billing_last_name" : billing_last_name,
         "billing_address": order_data["billing_address"]["address"],
         "billing_city": order_data["billing_address"]["city"],
         "billing_pincode": order_data["billing_address"]["zip"],
