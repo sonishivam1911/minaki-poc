@@ -134,9 +134,9 @@ def create_sr_forward(params):
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {token}'
     }
-    parsed_data = json.loads(payload)
-    for key,value in parsed_data.items():
-        logger.debug(f"key is {key} and value is {value}")
+    #  parsed_data = json.loads(payload)
+    # for key,value in parsed_data.items():
+    #     logger.debug(f"key is {key} and value is {value}")
     
     response = requests.request("POST", url, headers=headers, data=payload)
     return response.json()
