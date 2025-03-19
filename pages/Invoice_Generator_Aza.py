@@ -204,7 +204,7 @@ st.title("Aza Sales Invoice Generator")
 
 # Date picker for invoice date
 invoice_date = st.date_input("Select Invoice Date")
-customer_list = fetch_customer_name_list()
+customer_list = fetch_customer_name_list(is_aza=True)
 # selected_customer = st.selectbox("Select Customer", customer_list)
 
 # File Uploader for Aza Sales Excel File

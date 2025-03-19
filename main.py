@@ -570,7 +570,7 @@ def process_images(image_paths, output_dir, sku):
         counter+= 1
 
 
-def load_customer_data():
+def load_customer_data(is_aza=False):
     """
     Load the default customer data CSV.
 
@@ -581,14 +581,17 @@ def load_customer_data():
         pd.DataFrame: DataFrame containing customer data.
     """
     try:
-        required_columns = ["contact_name", "gst_no", "place_of_contact"]
+        required_columns = ["contact_id","contact_name", "gst_no", "place_of_contact"]
 
         customer_data_df = crud.read_table("zakya_contacts")
         customer_data_df = customer_data_df[customer_data_df['gst_treatment'] == 'business_gst']
-        aza_filter = customer_data_df['contact_name'].str.match('^AZA', case=False)
-        aza_contacts = customer_data_df[aza_filter]        
-        aza_contacts = aza_contacts[required_columns]
-        return aza_contacts
+        if is_aza:
+            aza_filter = customer_data_df['contact_name'].str.match('^AZA', case=False)
+            aza_contacts = customer_data_df[aza_filter]        
+            aza_contacts = aza_contacts[required_columns]
+            return aza_contacts
+        else:
+            return customer_data_df[required_columns]
     except Exception as e:
         raise ValueError(f"Error loading customer data: {e}")
     
@@ -639,8 +642,8 @@ def create_whereclause_fetch_data(pydantic_model, filter_dict, query):
         return {"error": f"Error fetching row: {e}"}
 
 
-def fetch_customer_name_list():
-    customer_df = load_customer_data()
+def fetch_customer_name_list(is_aza=False):
+    customer_df = load_customer_data(is_aza)
     return customer_df["contact_name"].unique()
 
 
