@@ -197,7 +197,7 @@ def fetch_object_for_each_id(base_url,access_token,organization_id,endpoint):
         return None
 
 
-def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payload):
+def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payload, extra_args = {}):
     """
     Send a POST request to Zakya API to create a new record.
     
@@ -219,10 +219,14 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
         'organization_id': organization_id,
     }
 
-    if "/salesorders" in endpoint:
+    if "salesorders" in endpoint:
         params['ignore_auto_number_generation'] = True
-    elif "/invoices" in endpoint:
+    elif "invoices" in endpoint:
         params['ignore_auto_number_generation'] = True
+    elif "packages" in endpoint and 'salesorder_id' in extra_args:
+        params['salesorder_id'] = extra_args['salesorder_id']
+    elif "shipmentorders" in endpoint and 'salesorder_id' in extra_args:
+        params['salesorder_id'] = extra_args['salesorder_id']
 
     response = requests.post(
         url=url,
