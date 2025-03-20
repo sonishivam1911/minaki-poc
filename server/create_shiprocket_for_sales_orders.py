@@ -1,9 +1,11 @@
 import streamlit as st
+import datetime
+import json
 from config.logger import logger
 import pandas as pd
-from utils.zakya_api import fetch_object_for_each_id
+from utils.zakya_api import fetch_object_for_each_id, post_record_to_zakya
 from core.helper_zakya import fetch_records_from_zakya_in_df_format
-from utils.bhavvam.shiprocket import shiprocket_auth,list_couriers, check_service, create_sr_forward
+from utils.bhavvam.shiprocket import shiprocket_auth,list_couriers, check_service, create_sr_forward, generate_manifest, generate_label
 
 def sales_order_id_number_mapping_dict():
     # fetch sales orders from zakya
@@ -85,6 +87,106 @@ def create_shiprocket_sr_forward(config):
     
     # Call the updated function with the parameters dictionary
     shiprocket_forward_order = create_sr_forward(sr_params)
+    logger.debug(f"Shiprocket result after calling sr forward function: {shiprocket_forward_order}")
+
+    # create package payload
+    package_payload = {
+        # "package_number" : f"{sales_order_item_detail['salesorder_number']} package for {sales_order_item_detail['customer_name']}",
+        "date" : str(datetime.datetime.now().strftime("%Y-%m-%d")),
+        "line_items" : [ {
+            'so_line_item_id' : obj['line_item_id'],
+            'quantity' : obj['quantity']
+        } for obj in sales_order_item_detail['line_items']],
+        "notes" : f"Shiprocket result - {shiprocket_forward_order}"
+    }
+    extra_args = {
+        'salesorder_id' : sales_order_item_detail['salesorder_id']
+    }
+    logger.debug(f'payload for packages is : {package_payload}')
+    zakya_packages_result = post_record_to_zakya(
+        st.session_state['api_domain'],
+        st.session_state['access_token'],
+        st.session_state['organization_id'],
+        'packages',
+        package_payload,
+        extra_args    
+    )
+
+    # create shipment
+    zakya_shipment_result = create_zakya_shipment_order(shiprocket_forward_order,extra_args)
     
     logger.debug(f"Shiprocket result after calling sr forward function: {shiprocket_forward_order}")
-    return shiprocket_forward_order
+    return shiprocket_forward_order, zakya_shipment_result, zakya_packages_result
+
+
+def create_zakya_shipment_order(shiprocket_result,extra_args):
+    """
+    Create a shipment order in Zakya API using Shiprocket result data
+    
+    Parameters:
+    - shiprocket_result: Dictionary containing Shiprocket API response
+    - contact_persons: ID of the contact person (defaults to sales order contact if None)
+    - template_id: Template ID for the shipment (defaults to configuration if None)
+    
+    Returns:
+    - Response from Zakya API
+    """
+    if not shiprocket_result or 'status' not in shiprocket_result or shiprocket_result['status'] != 1:
+        logger.error("Invalid Shiprocket result")
+        return {"error": "Invalid Shiprocket result"}
+    
+    # Extract payload
+    payload = shiprocket_result.get('payload', {})
+    
+    # Get today's date if assigned date not available
+    current_date = str(datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"))
+    
+    # Extract date from assigned_date_time if available
+    assigned_date = None
+    if 'assigned_date_time' in payload and payload['assigned_date_time'] and 'date' in payload['assigned_date_time']:
+        assigned_date = payload['assigned_date_time']['date'].split(' ')[0]
+    
+    # Create payload for Zakya API
+    zakya_payload = {
+        "date": assigned_date or current_date,
+        "reference_number": payload.get('awb_code', ""),
+        "delivery_method": payload.get('courier_name', ""),
+        "tracking_number": payload.get('awb_code', ""),
+        # "shipping_charge": 7,  # Default value, could be retrieved from courier rate
+        # "template_id": template_id or 4815000000017003,  # Default to example value if not provided
+        "notes": f"Shiprocket Order ID: {payload.get('order_id', '')}, Channel Order: {payload.get('channel_order_id', '')}"
+    }
+    
+    logger.debug(f"Zakya Shipment API payload: {zakya_payload}")
+    result=post_record_to_zakya(
+        st.session_state['api_domain'],
+        st.session_state['access_token'],
+        st.session_state['organization_id'],
+        'shipmentorders',
+        zakya_payload,
+        extra_args   
+    )
+
+    return result
+
+
+
+def generate_manifest_service(config):
+
+    generate_manifest_result = generate_manifest(
+        config['token'],
+        config['shipment_ids']
+    )
+
+    return generate_manifest_result
+
+
+def generate_label_service(config):
+
+    generate_label_result = generate_label(
+        config['token'],
+        config['shipment_ids']
+    )
+
+    return generate_label_result
+
