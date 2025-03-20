@@ -198,10 +198,15 @@ def shiprocket_streamlit_interface():
                             # Call function that now returns multiple results
                             result = create_shiprocket_sr_forward(config)
                             
-                            if result and isinstance(result, tuple) and len(result) == 3:
+                            if result and isinstance(result, tuple) and len(result) == 4:
                                 # Unpack the result tuple
-                                shiprocket_result, zakya_shipment_result, zakya_packages_result = result
+                                shiprocket_result, zakya_shipment_result, zakya_packages_result, crud_result = result
                                 
+                                if crud_result['status']:
+                                    st.success(f"{crud_result['message']}")
+                                else:
+                                    st.warning(f"{crud_result['message']}")
+
                                 # Display all results using the new function
                                 display_shipment_results(shiprocket_result, zakya_shipment_result, zakya_packages_result)
                             elif result and isinstance(result, dict) and 'status' in result and result['status'] == 1:

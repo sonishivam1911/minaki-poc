@@ -27,6 +27,7 @@ def display_shipment_results(shiprocket_result, zakya_shipment_result, zakya_pac
                 # Success message with shipment ID
                 st.success("✅ Shiprocket shipment created successfully!")
                 
+                
                 # Display details in columns
                 col1, col2 = st.columns(2)
                 

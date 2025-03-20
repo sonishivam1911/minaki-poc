@@ -225,7 +225,6 @@ def process_sales_order(fields, customer_name, zakya_config):
     
     salesorder_payload = {
         "customer_id": int(customer_id),
-        "salesorder_number": reference_number,
         "date": format_date_for_api(fields["PO Date"]),
         "shipment_date": format_date_for_api(fields["PO Delivery Date"]),
         "reference_number": reference_number,
