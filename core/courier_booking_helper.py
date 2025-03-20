@@ -27,6 +27,7 @@ def display_shipment_results(shiprocket_result, zakya_shipment_result, zakya_pac
                 # Success message with shipment ID
                 st.success("✅ Shiprocket shipment created successfully!")
                 
+                
                 # Display details in columns
                 col1, col2 = st.columns(2)
                 
@@ -88,7 +89,7 @@ def display_shipment_results(shiprocket_result, zakya_shipment_result, zakya_pac
                                     st.json(manifest_result)
                             except Exception as e:
                                 st.error(f"Error generating manifest: {str(e)}")
-                                logger.error(f"Error generating manifest: {str(e)}")
+                                #logger.error(f"Error generating manifest: {str(e)}")
                 
                 with col2:
                     if st.button("Generate Label"):
@@ -121,7 +122,7 @@ def display_shipment_results(shiprocket_result, zakya_shipment_result, zakya_pac
                                     st.json(label_result)
                             except Exception as e:
                                 st.error(f"Error generating label: {str(e)}")
-                                logger.error(f"Error generating label: {str(e)}")                                      
+                                #logger.error(f"Error generating label: {str(e)}")                                      
             else:
                 st.error("❌ Shiprocket shipment creation failed")
                 st.json(shiprocket_result)

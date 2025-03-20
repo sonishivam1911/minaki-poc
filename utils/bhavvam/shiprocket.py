@@ -81,6 +81,8 @@ def create_sr_forward(params):
         for item in order_data.get("line_items", [])
     ]
 
+    logger.debug(f"Order items are : {order_items}")
+
     # Log contact person information
     logger.debug(f"Contact Person information is: {order_data.get('contact_persons', [])}")
     
