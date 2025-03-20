@@ -48,7 +48,7 @@ def shiprocket_streamlit_interface():
                     st.error("Failed to fetch sales order details")
             except Exception as e:
                 st.error(f"Error fetching sales order details: {str(e)}")
-                logger.error(f"Error fetching sales order details: {str(e)}")
+                #logger.error(f"Error fetching sales order details: {str(e)}")
     
     # Display sales order details if available
     if st.session_state.get('sales_order_details'):
@@ -145,7 +145,7 @@ def shiprocket_streamlit_interface():
                 st.session_state['courier_fetched'] = True
             except Exception as e:
                 st.error(f"Error fetching couriers: {str(e)}")
-                logger.error(f"Error fetching couriers: {str(e)}")
+                #logger.error(f"Error fetching couriers: {str(e)}")
     
     # Display courier selection if couriers have been fetched
     if st.session_state.get('courier_fetched', False) and st.session_state.get('courier_df') is not None:
@@ -191,8 +191,8 @@ def shiprocket_streamlit_interface():
                 # Store selected courier ID in session state
                 st.session_state['selected_courier'] = selected_courier_id
                 
-                logger.debug(f"Contact person: {contact_person}")
-                logger.debug(f"Selected courier: {selected_courier_id}")
+                #logger.debug(f"Contact person: {contact_person}")
+                #logger.debug(f"Selected courier: {selected_courier_id}")
                 
                 with st.spinner('Creating shipments and packages...'):
                             # Call function that now returns multiple results

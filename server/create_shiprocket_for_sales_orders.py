@@ -60,7 +60,7 @@ def create_shiprocket_sr_forward(config):
     )
     
     sales_order_item_detail = sales_order_item_detail['salesorder']
-    logger.debug(f"sales_order_item_detail keys: {sales_order_item_detail.keys()}")
+    #logger.debug(f"sales_order_item_detail keys: {sales_order_item_detail.keys()}")
     auth_data=shiprocket_auth()
     # Prepare parameters dictionary for create_sr_forward
     sr_params = {
@@ -79,11 +79,11 @@ def create_shiprocket_sr_forward(config):
     # Add contact person if provided
     if 'contact_person' in config and config['contact_person']:
         sr_params["contact_person"] = config['contact_person']
-        logger.debug(f"Using provided contact person: {config['contact_person']}")
+        #logger.debug(f"Using provided contact person: {config['contact_person']}")
     
     # Call the updated function with the parameters dictionary
     shiprocket_forward_order = create_sr_forward(sr_params)
-    logger.debug(f"Shiprocket result after calling sr forward function: {shiprocket_forward_order}")
+    #logger.debug(f"Shiprocket result after calling sr forward function: {shiprocket_forward_order}")
     status, message = save_shipment_to_database(shiprocket_result=shiprocket_forward_order,sales_order_details=sales_order_item_detail)
 
     # create package payload
@@ -106,7 +106,7 @@ def create_packages_on_zakya(sales_order_item_detail, shiprocket_forward_order):
     extra_args = {
         'salesorder_id' : sales_order_item_detail['salesorder_id']
     }
-    logger.debug(f'payload for packages is : {package_payload}')
+    #logger.debug(f'payload for packages is : {package_payload}')
     zakya_packages_result = post_record_to_zakya(
         st.session_state['api_domain'],
         st.session_state['access_token'],
@@ -132,7 +132,7 @@ def create_zakya_shipment_order(shiprocket_result,extra_args):
     - Response from Zakya API
     """
     if not shiprocket_result or 'status' not in shiprocket_result or shiprocket_result['status'] != 1:
-        logger.error("Invalid Shiprocket result")
+        #logger.error("Invalid Shiprocket result")
         return {"error": "Invalid Shiprocket result"}
     
     # Extract payload
@@ -155,7 +155,7 @@ def create_zakya_shipment_order(shiprocket_result,extra_args):
         "notes": f"Shiprocket Order ID: {payload.get('order_id', '')}, Channel Order: {payload.get('channel_order_id', '')}"
     }
     
-    logger.debug(f"Zakya Shipment API payload: {zakya_payload}")
+    #logger.debug(f"Zakya Shipment API payload: {zakya_payload}")
     result=post_record_to_zakya(
         st.session_state['api_domain'],
         st.session_state['access_token'],
@@ -176,7 +176,7 @@ def generate_manifest_service(config):
         config['shipment_ids']
     )
 
-    logger.debug(f"Generate Manifest Results : {generate_manifest_result}")
+    #logger.debug(f"Generate Manifest Results : {generate_manifest_result}")
 
     return generate_manifest_result
 
@@ -188,7 +188,7 @@ def generate_label_service(config):
         config['shipment_ids']
     )
 
-    logger.debug(f"Generate Label Results : {generate_label_result}")
+    #logger.debug(f"Generate Label Results : {generate_label_result}")
 
     return generate_label_result
 
@@ -254,7 +254,7 @@ def save_shipment_to_database(shiprocket_result, sales_order_details):
         
         # Create DataFrame
         df = pd.DataFrame([combined_data])
-        logger.debug(f"Record to save to dataframe : {df}")
+        #logger.debug(f"Record to save to dataframe : {df}")
         # Check if record already exists
         check_query = f"""
         SELECT id FROM shiprocket_salesorder_mapping 
@@ -272,6 +272,6 @@ def save_shipment_to_database(shiprocket_result, sales_order_details):
         return True, "Shipment data saved successfully to database"
         
     except Exception as e:
-        logger.error(f"Error saving shipment data to database: {str(e)}")
+        #logger.error(f"Error saving shipment data to database: {str(e)}")
         return False, f"Error saving shipment data: {str(e)}"
     
