@@ -50,7 +50,7 @@ def invoice_sub_dashboard_subpage():
         # else:
         #     # Fallback dates if data is empty or date column missing
         
-        min_date = datetime.date.today() - datetime.timedelta(days=60)
+        min_date = datetime.date.today() - datetime.timedelta(days=365)
         max_date = datetime.date.today()
         
         with date_col1:
