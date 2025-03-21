@@ -55,8 +55,9 @@ def get_access_token(auth_code=None, refresh_token=None):
     else:
         raise ValueError("Either auth_code or refresh_token must be provided.")
 
-    print(f'url is {TOKEN_URL} and data is : {payload}')
+    
     response = requests.post(TOKEN_URL, data=payload)
+    print(f'error is  : {response.json()}')
     response.raise_for_status()
     return response.json()
 

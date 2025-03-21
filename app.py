@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # from server.reports.invoice_reports import create_invoice_mapping, create_salesorder_mapping
 from utils.zakya_api import get_access_token, get_authorization_url, fetch_organizations
 from utils.postgres_connector import crud
-from frontend_components.sales_order_product_mapping_dashboard import product_metrics_subpage
+from frontend_components.dashboard.index import index
 from config.logger import logger
 
 load_dotenv()
@@ -49,7 +49,8 @@ def main():
     zakya_auth_df = crud.read_table("zakya_auth")
     zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
     
-    if not zakya_auth_df.empty:
+    
+    if not zakya_auth_df.empty and 'token_generated' in st.session_state:
         try:
             set_access_token_via_refresh_token()
         except Exception as e:
@@ -58,6 +59,8 @@ def main():
             fetch_zakya_code()
     else:   
         set_refresh_token()
+
+    st.session_state['token_generated'] = True
 
     try:
         if 'access_token' in st.session_state:
@@ -70,7 +73,8 @@ def main():
                     logger.error("No organizations found in response")
                     st.error("No organizations found. Please check your Zakya account.")
             
-            product_metrics_subpage()
+            if 'organization_id' in st.session_state:
+                index()
 
 
     except Exception as e:
@@ -90,7 +94,7 @@ def set_access_token_via_refresh_token():
     
     # Correctly access the refresh token value
     refresh_token = zakya_auth_df["refresh_token"].iloc[0]
-    logger.debug(f"Refresh token is {refresh_token}")
+    # logger.debug(f"Refresh token is {refresh_token}")
     st.session_state["refresh_token"] = refresh_token
     
     refresh_token_data = get_access_token(refresh_token=refresh_token)
