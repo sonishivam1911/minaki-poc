@@ -41,6 +41,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
         
         customer_id = customer_data[0]["contact_id"]
         gst = customer_data[0].get("gst_no", "")
+        salesorder_product_mapping_dict = super().fetch_item_id_sales_order_mapping()
         
         # Create line items for invoice
         line_items = []
@@ -67,6 +68,10 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 # Check if this SKU exists and add item_id only if it does
                 if sku in invoice_object.get('existing_sku_item_id_mapping', {}):
                     line_item["item_id"] = invoice_object['existing_sku_item_id_mapping'][sku]
+
+                    if line_item["item_id"] in salesorder_product_mapping_dict:
+                        logger.debug(f"Salesorder item id is : {salesorder_product_mapping_dict[line_item["item_id"]]}")
+                        line_item["salesorder_item_id"] = salesorder_product_mapping_dict[line_item["item_id"]]               
                 
                 line_items.append(line_item)
                 

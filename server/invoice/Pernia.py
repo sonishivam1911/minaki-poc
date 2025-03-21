@@ -116,6 +116,7 @@ class PerniaInvoiceProcessor(InvoiceProcessor):
         line_items = []
         self.processed_po_numbers = []  # Reset the list
         sku_field_name =self.get_sku_field_name()
+        salesorder_product_mapping_dict = super().fetch_item_id_sales_order_mapping()
         
         for _, row in self.sales_df.iterrows():
             try:
@@ -146,6 +147,10 @@ class PerniaInvoiceProcessor(InvoiceProcessor):
                 # Check if this SKU exists and add item_id only if it does
                 if sku in invoice_object.get('existing_sku_item_id_mapping', {}):
                     line_item["item_id"] = invoice_object['existing_sku_item_id_mapping'][sku]
+                    
+                    if line_item["item_id"] in salesorder_product_mapping_dict:
+                        logger.debug(f"Salesorder item id is : {salesorder_product_mapping_dict[line_item["item_id"]]}")
+                        line_item["salesorder_item_id"] = salesorder_product_mapping_dict[line_item["item_id"]]                    
                 
                 line_items.append(line_item)
                 self.processed_po_numbers.append(po_number)  # Add to tracking list

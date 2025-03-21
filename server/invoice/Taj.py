@@ -29,6 +29,7 @@ class TajInvoiceProcessor(InvoiceProcessor):
         # Group by branch name
         branch_to_customer_map = {}
         branch_to_invoice_payload = defaultdict(lambda: {"line_items": []})
+        salesorder_product_mapping_dict = super().fetch_item_id_sales_order_mapping()
         
         for _, row in self.sales_df.iterrows():
             try:
@@ -69,6 +70,10 @@ class TajInvoiceProcessor(InvoiceProcessor):
                 # Check if this SKU exists and add item_id only if it does
                 if sku in invoice_object.get('existing_sku_item_id_mapping', {}):
                     line_item["item_id"] = invoice_object['existing_sku_item_id_mapping'][sku]
+
+                    if line_item["item_id"] in salesorder_product_mapping_dict:
+                        logger.debug(f"Salesorder item id is : {salesorder_product_mapping_dict[line_item["item_id"]]}")
+                        line_item["salesorder_item_id"] = salesorder_product_mapping_dict[line_item["item_id"]]
                 
                 # Add line item to the invoice for this branch
                 branch_to_invoice_payload[branch_name]["line_items"].append(line_item)

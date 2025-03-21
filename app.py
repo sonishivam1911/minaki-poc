@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 # from server.reports.invoice_reports import create_invoice_mapping, create_salesorder_mapping
 from utils.zakya_api import get_access_token, get_authorization_url, fetch_organizations
 from utils.postgres_connector import crud
+from frontend_components.sales_order_product_mapping_dashboard import product_metrics_subpage
 from config.logger import logger
 
 load_dotenv()
@@ -69,13 +70,7 @@ def main():
                     logger.error("No organizations found in response")
                     st.error("No organizations found. Please check your Zakya account.")
             
-            # invoice_mapping_df = create_invoice_mapping()
-            # st.header("Invoice Items Mapping Created")
-            # st.dataframe(invoice_mapping_df)
-
-            # salesorder_mapping_df = create_salesorder_mapping()
-            # st.header("Sales Order Item Mapping Created")
-            # st.dataframe(salesorder_mapping_df)
+            product_metrics_subpage()
 
 
     except Exception as e:

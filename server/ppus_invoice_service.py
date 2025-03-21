@@ -4,9 +4,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from utils.postgres_connector import crud
 from config.logger import logger
-from schema.zakya_schemas.schema import ZakyaProducts
-from config.constants import products_mapping_zakya_products
-from queries.zakya import queries
+from utils.common_filtering_database_function import find_product
 from utils.zakya_api import fetch_records_from_zakya
 from core.helper_zakya import extract_record_list
 # Load environment variables from .env file
@@ -53,25 +51,6 @@ def fetch_pernia_data_from_database(input):
                     filtered_data.append(order)
     
     return filtered_data
-
-def create_whereclause_fetch_data(pydantic_model, filter_dict, query):
-    """Fetch data using where clause asynchronously."""
-    try:
-        whereClause = crud.build_where_clause(pydantic_model, filter_dict)
-        formatted_query = query.format(whereClause=whereClause)
-        data = crud.execute_query(query=formatted_query, return_data=True)
-        return data.to_dict('records')
-    except Exception as e:
-        logger.error(f"Error fetching data: {e}")
-        return {"error": f"Error fetching data: {e}"}
-
-def find_product(sku):
-    """Find a product by SKU."""
-    items_data = create_whereclause_fetch_data(ZakyaProducts, {
-        products_mapping_zakya_products['style']: {'op': 'eq', 'value': sku}
-    }, queries.fetch_prodouct_records)    
-    return items_data
-
 
 def fetch_salesorders_by_customer(config):
     """Fetch sales orders for a specific customer."""

@@ -67,6 +67,11 @@ class InvoiceProcessor(ABC):
         """Preprocess the sales data. To be implemented by subclasses."""
         pass
     
+    def fetch_item_id_sales_order_mapping(self):
+        """Preprocess the sales data. To be implemented by subclasses."""
+        zakya_salesorder_line_item_mapping_df = crud.read_table('zakya_salesorder_line_item_mapping')
+        return dict(zip(zakya_salesorder_line_item_mapping_df['item_id'], zakya_salesorder_line_item_mapping_df['line_item_id']))
+
     @abstractmethod
     async def create_invoices(self):
         """Create invoices from processed data. To be implemented by subclasses."""
