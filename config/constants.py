@@ -1,6 +1,8 @@
 customer_mapping_zakya_contacts = {
     'branch_name' : 'contact_name',
-    'display_name' : 'contact_name'
+    'display_name' : 'contact_name',
+    'contact_name' : 'contact_name',
+    'gst_treatment' : 'gst_treatment'
 }
 
 salesorder_mapping_zakya = {
@@ -91,3 +93,6 @@ column_rename_map = {
     "CF.Finding": "CF_Finding",
     "CF.eCommerce Channel": "CF_eCommerce_Channel"
 }
+
+
+CustomerGstTreatmentKey = 'business_gst'
