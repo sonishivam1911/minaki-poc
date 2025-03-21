@@ -127,3 +127,64 @@ ORDER BY
     order_date DESC, salesorder_number;
 
 """
+
+
+invoice_product_mapping_query = """
+
+
+WITH customer_product_metrics AS (
+    -- Join line items with products, invoices, and customers to get complete sales data
+    SELECT 
+        p.item_id,
+        p.name AS product_name,
+        p.category_name,
+        p.cf_collection AS collection,
+        i.customer_id,
+        c.contact_name AS customer_name,
+        c.company_name,
+        c.customer_sub_type as customer_type,
+        i.date as invoice_date,
+        SUM(lim.quantity) AS total_quantity_sold,
+        SUM(lim.amount) AS total_revenue,
+        CASE 
+            WHEN SUM(lim.quantity) > 0 
+            THEN SUM(lim.amount) / SUM(lim.quantity) 
+            ELSE 0 
+        END AS avg_selling_price
+    FROM 
+        public.zakya_invoice_line_item_mapping lim
+    LEFT JOIN 
+        public.zakya_products p ON lim.item_id = p.item_id
+    LEFT JOIN 
+        public.zakya_invoices i ON lim.invoice_id = i.invoice_id
+    LEFT JOIN
+        public.zakya_contacts c ON i.customer_id = c.contact_id
+    WHERE 
+        -- Filter out void/cancelled/draft invoices if needed
+        (i.status = 'paid' OR i.status = 'sent' OR i.status = 'overdue')
+        AND i.customer_id IS NOT NULL
+    GROUP BY 
+        p.item_id, p.name, p.category_name, p.cf_collection, 
+        i.customer_id, c.contact_name, c.company_name,c.customer_sub_type,invoice_date
+)
+
+-- 1. Customer-Product metrics
+SELECT 
+    customer_id,
+    customer_name,
+    company_name,
+    item_id,
+    product_name,
+    category_name,
+    collection,
+    customer_type,
+    invoice_date,
+    total_quantity_sold,
+    total_revenue,
+    avg_selling_price
+FROM 
+    customer_product_metrics
+ORDER BY 
+    customer_name, total_revenue DESC;
+
+"""
