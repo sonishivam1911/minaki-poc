@@ -10,6 +10,9 @@ from utils.bhavvam.shiprocket import (shiprocket_auth
                                       , create_sr_forward
                                       , generate_manifest
                                       , generate_label
+                                      , list_orders
+                                      , list_shipments,
+                                      fetch_all_return_orders
                                     )
 
 def sales_order_id_number_mapping_dict():
@@ -176,7 +179,7 @@ def generate_manifest_service(config):
         config['shipment_ids']
     )
 
-    #logger.debug(f"Generate Manifest Results : {generate_manifest_result}")
+    logger.debug(f"Generate Manifest Results : {generate_manifest_result}")
 
     return generate_manifest_result
 
@@ -275,3 +278,107 @@ def save_shipment_to_database(shiprocket_result, sales_order_details):
         #logger.error(f"Error saving shipment data to database: {str(e)}")
         return False, f"Error saving shipment data: {str(e)}"
     
+
+def flatten_order(order):
+    # Flatten products
+    if 'products' in order:
+        # Take the first product if multiple exist
+        product = order['products'][0] if order['products'] else {}
+        order['product_name'] = product.get('name', '')
+        order['product_quantity'] = product.get('quantity', '')
+        order['product_price'] = product.get('price', '')
+    
+    # Flatten shipments
+    if 'shipments' in order:
+        # Take the first shipment if multiple exist
+        shipment = order['shipments'][0] if order['shipments'] else {}
+        order['courier'] = shipment.get('courier', '')
+        order['awb'] = shipment.get('awb', '')
+        order['shipping_status'] = shipment.get('status', '')
+    
+    # Flatten others dictionary
+    if 'others' in order:
+        others = order['others']
+        order['billing_name'] = others.get('billing_name', '')
+        order['billing_email'] = others.get('billing_email', '')
+        order['billing_phone'] = others.get('billing_phone', '')
+    
+    # Remove nested dictionaries to prevent conversion issues
+    order.pop('products', None)
+    order.pop('shipments', None)
+    order.pop('others', None)
+    
+    return order
+
+
+def fetch_shiprocket_order_detail():
+    auth_data=shiprocket_auth()
+    st.session_state['token'] = auth_data['token']
+    order_list_result=list_orders(token=st.session_state['token'])
+    flattened_orders = [flatten_order(order) for order in order_list_result['data']]
+    shipment_order_df = pd.DataFrame.from_records(flattened_orders)
+    logger.debug(f"shipment_order_df columns is : {shipment_order_df.columns}")
+
+    return shipment_order_df
+
+
+def flatten_shipments(shipments_data):
+    # Extract the list of shipments from the dictionary
+    shipments_list = shipments_data.get('data', [])
+    
+    # Prepare a list to store flattened shipments
+    flattened_shipments = []
+    
+    for shipment in shipments_list:
+        # Create a copy of the shipment to avoid modifying the original
+        flat_shipment = shipment.copy()
+        
+        # Handle multiple products by combining them
+        if shipment.get('products'):
+            # Combine product names and skus
+            product_names = [p['name'] for p in shipment['products']]
+            product_skus = [p['sku'] for p in shipment['products']]
+            product_quantities = [p['quantity'] for p in shipment['products']]
+            
+            flat_shipment['product_names'] = ' | '.join(product_names)
+            flat_shipment['product_skus'] = ' | '.join(product_skus)
+            flat_shipment['product_quantities'] = ' | '.join(map(str, product_quantities))
+            
+            # Remove original products list
+            del flat_shipment['products']
+        
+        # Flatten charges if present
+        if 'charges' in shipment:
+            for key, value in shipment['charges'].items():
+                flat_shipment[f'charge_{key}'] = value
+            del flat_shipment['charges']
+        
+        flattened_shipments.append(flat_shipment)
+    
+    # Create DataFrame
+    shipment_order_df = pd.DataFrame(flattened_shipments)
+    
+    return shipment_order_df
+
+
+def fetch_shipment_details():
+    
+    if 'token' not in st.session_state:
+        auth_data=shiprocket_auth()
+        st.session_state['token'] = auth_data['token']
+    
+    list_shipment_result=list_shipments(token=st.session_state['token'])
+    list_shipment_result=flatten_shipments(list_shipment_result)
+    logger.debug(f"Shipment Listing Result - {list_shipment_result}")
+    return list_shipment_result
+
+
+def fetch_all_return_orders_service():
+    
+    if 'token' not in st.session_state:
+        auth_data=shiprocket_auth()
+        st.session_state['token'] = auth_data['token']
+    
+    all_return_orders_result=fetch_all_return_orders(token=st.session_state['token'])
+    logger.debug(f"Return Orders Result - {all_return_orders_result}")
+    return pd.DataFrame.from_records(all_return_orders_result['data'])

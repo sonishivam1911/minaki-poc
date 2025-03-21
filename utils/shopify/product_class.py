@@ -1,7 +1,9 @@
 import shopify
 import pandas as pd
-
+from typing import List
 from.shopify_base_class import BaseShopifyResource
+from utils.shopify.collection_resource import CollectionResource
+
 
 class ProductResource(BaseShopifyResource):
     """
@@ -59,19 +61,83 @@ class ProductResource(BaseShopifyResource):
 
     def to_dataframe(self, products_list):
         """
-        Overriding the base method to handle variants or other product details.
+        Convert products to a DataFrame, including variant data.
         """
         output = []
         for product in products_list:
-            # product.attributes is a dictionary containing product data
             product_attrs = product.attributes
             
             # If product has variants, extract them
-            if "variants" in product_attrs:
+            if "variants" in product_attrs and product_attrs["variants"]:
                 for v in product_attrs["variants"]:
-                    output.append(v.attributes)
-            # else:
-            #     # If no variants, consider just appending product_attrs
-            #     output.append(product_attrs)
+                    variant_data = v.attributes if hasattr(v, 'attributes') else v
+                    row = {
+                        'product_id': product_attrs.get('id'),
+                        'product_title': product_attrs.get('title'),
+                        'product_handle': product_attrs.get('handle'),
+                        'product_vendor': product_attrs.get('vendor'),
+                        'product_type': product_attrs.get('product_type'),
+                        'status': product_attrs.get('status'),
+                        'tags': product_attrs.get('tags', ''),
+                        'variant_id': variant_data.get('id'),
+                        'variant_title': variant_data.get('title'),
+                        'sku': variant_data.get('sku'),
+                        'price': variant_data.get('price'),
+                        'compare_at_price': variant_data.get('compare_at_price'),
+                        'inventory_quantity': variant_data.get('inventory_quantity')
+                    }
+                    output.append(row)
+            else:
+                # If no variants, create a single row for the product
+                row = {
+                    'product_id': product_attrs.get('id'),
+                    'product_title': product_attrs.get('title'),
+                    'product_handle': product_attrs.get('handle'),
+                    'product_vendor': product_attrs.get('vendor'),
+                    'product_type': product_attrs.get('product_type'),
+                    'status': product_attrs.get('status'),
+                    'tags': product_attrs.get('tags', ''),
+                    'variant_id': None,
+                    'variant_title': None,
+                    'sku': None,
+                    'price': None,
+                    'compare_at_price': None,
+                    'inventory_quantity': None
+                }
+                output.append(row)
                 
         return pd.DataFrame.from_records(output)
+    
+
+    def get_by_collection(self, collection_id: str) -> List:
+        """
+        Get all products that belong to a specific collection
+        
+        Args:
+            collection_id: The collection ID to filter by
+            
+        Returns:
+            List of product objects
+        """
+        collection_resource = CollectionResource(self.connector)
+        return collection_resource.get_products_in_collection(collection_id)
+    
+
+    def get_by_ids(self, product_ids: List[str]) -> List:
+        """
+        Get products by their IDs
+        
+        Args:
+            product_ids: List of product IDs
+            
+        Returns:
+            List of product objects
+        """
+        if not product_ids:
+            return []
+        
+        # Convert list of IDs to comma-separated string
+        ids_string = ",".join(str(pid) for pid in product_ids)
+        
+        product_data = getattr(shopify, "Product")
+        return list(product_data.find(ids=ids_string))

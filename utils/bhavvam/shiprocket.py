@@ -2,6 +2,9 @@ import requests
 import json
 import os
 import pandas as pd
+import asyncio
+import aiohttp
+from typing import List, Dict
 from dotenv import load_dotenv
 from config.logger import logger
 
@@ -194,3 +197,210 @@ def list_couriers(token):
 
 
 
+def list_orders(token, **kwargs):
+    """
+    Retrieve a list of orders from Shiprocket
+    
+    Args:
+        token (str): Authentication token from shiprocket_auth()
+        **kwargs: Optional query parameters to filter orders
+            Possible parameters include:
+            - page (int): Page number for pagination
+            - per_page (int): Number of orders per page
+            - filter_by (str): Filter orders by status
+            - sort_by (str): Sort orders
+    
+    Returns:
+        dict: JSON response containing list of orders
+    """
+    url = "https://apiv2.shiprocket.in/v1/external/orders"
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {token}'
+    }
+    
+    # Add query parameters if provided
+    params = {}
+    for key, value in kwargs.items():
+        params[key] = value
+    
+    response = requests.request("GET", url, headers=headers, params=params)
+    return response.json()
+
+def get_order_details(token, order_id):
+    """
+    Retrieve details of a specific order from Shiprocket
+    
+    Args:
+        token (str): Authentication token from shiprocket_auth()
+        order_id (str or int): Unique identifier of the order
+    
+    Returns:
+        dict: JSON response containing detailed order information
+    """
+    url = f"https://apiv2.shiprocket.in/v1/external/orders/show/{order_id}"
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {token}'
+    }
+    
+    response = requests.request("GET", url, headers=headers)
+    return response.json()
+
+def list_shipments(token, **kwargs):
+    """
+    Retrieve a list of shipments from Shiprocket
+    
+    Args:
+        token (str): Authentication token from shiprocket_auth()
+        **kwargs: Optional query parameters to filter shipments
+            Possible parameters include:
+            - page (int): Page number for pagination
+            - per_page (int): Number of shipments per page
+            - filter_by (str): Filter shipments by status
+            - sort_by (str): Sort shipments
+    
+    Returns:
+        dict: JSON response containing list of shipments
+    """
+    url = "https://apiv2.shiprocket.in/v1/external/shipments"
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {token}'
+    }
+    
+    # Add query parameters if provided
+    params = {}
+    for key, value in kwargs.items():
+        params[key] = value
+    
+    response = requests.request("GET", url, headers=headers, params=params)
+    return response.json()
+
+
+
+def fetch_all_return_orders(token, **kwargs):
+    """
+    Retrieve a list of orders which are returned from Shiprocket
+    
+    Args:
+        token (str): Authentication token from shiprocket_auth()
+        **kwargs: Optional query parameters to filter orders
+            Possible parameters include:
+            - page (int): Page number for pagination
+            - per_page (int): Number of orders per page
+            - filter_by (str): Filter orders by status
+            - sort_by (str): Sort orders
+    
+    Returns:
+        dict: JSON response containing list of orders
+    """
+    url = "https://apiv2.shiprocket.in/v1/external/orders/processing/return"
+
+    # return_all_orders_df =asyncio.run(fetch_all_pages_data(
+    #     token=token,
+    #     initial_url=url,
+    # ))
+
+    # return return_all_orders_df
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {token}'
+    }
+    
+    # Add query parameters if provided
+    params = {}
+    for key, value in kwargs.items():
+        params[key] = value
+    
+    response = requests.request("GET", url, headers=headers, params=params)
+    return response.json()
+
+
+
+
+async def fetch_page(session: aiohttp.ClientSession, 
+                     url: str, 
+                     token: str, 
+                     semaphore: asyncio.Semaphore) -> Dict:
+    """
+    Async function to fetch a single page of orders
+    
+    Args:
+        session: Aiohttp client session
+        url: URL to fetch orders from
+        token: Authentication token
+        semaphore: Concurrency control semaphore
+    
+    Returns:
+        Dictionary of order data for the page
+    """
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {token}'
+    }
+    
+    async with semaphore:
+        try:
+            async with session.get(url, headers=headers) as response:
+                response.raise_for_status()
+                return await response.json()
+        except Exception as e:
+            print(f"Error fetching page {url}: {e}")
+            return {}
+        
+
+async def fetch_all_pages_data(token: str, 
+                            initial_url: str, 
+                            max_concurrent_requests: int = 20) -> List[Dict]:
+    """
+    Async function to fetch all orders across all pages
+    
+    Args:
+        token: Authentication token
+        initial_url: Base URL for orders endpoint
+        max_concurrent_requests: Maximum parallel requests
+    
+    Returns:
+        List of all order records
+    """
+    # Create semaphore for controlled concurrency
+    semaphore = asyncio.Semaphore(max_concurrent_requests)
+    
+    # First, get initial page to determine total pages
+    initial_response = requests.get(
+        initial_url, 
+        headers={'Authorization': f'Bearer {token}'}
+    ).json()
+    
+    # Extract pagination details
+    meta = initial_response.get('meta', {}).get('pagination', {})
+    total_pages = meta.get('total_pages', 1)
+    per_page = meta.get('per_page', 50)
+
+    logger.debug(f"meta data is :{meta}")
+    
+    # Generate page URLs
+    page_urls = [
+        f"{initial_url}?page={page}" 
+        for page in range(1, total_pages + 1)
+    ]
+    
+    # Async session and fetch
+    async with aiohttp.ClientSession() as session:
+        # Parallel page fetching
+        page_results = await asyncio.gather(
+            *[fetch_page(session, url, token, semaphore) for url in page_urls]
+        )
+    
+    # Aggregate all order records
+    all_orders = []
+    for result in page_results:
+        if result and 'data' in result:
+            all_orders.extend(result['data'])
+    
+    return all_orders        
