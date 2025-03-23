@@ -4,11 +4,11 @@ from datetime import datetime
 from config.logger import logger
 from frontend_components.pernia.utils.state_manager import get_zakya_connection
 from frontend_components.aza.utils.state_manager import update_aza_product_mapping_status
-from server.ppus_invoice_service import (
-    create_missing_salesorders, 
-    fetch_salesorders_by_customer_service,
-    analyze_missing_salesorders,
-    fetch_inventory_data
+from server.aza_invoice_service import (
+    create_missing_aza_salesorders, 
+    fetch_aza_salesorders_by_customer_service,
+    analyze_missing_aza_salesorders,
+    fetch_aza_inventory_data
 )
 
 def aza_sales_orders_tab():
@@ -41,14 +41,15 @@ def aza_sales_orders_tab():
                     'access_token': zakya_connection.get('access_token'),
                     'organization_id': zakya_connection.get('organization_id'),
                     'customer_id': customer_id,
-                    'include_inventory': True  # Request inventory data
+                    'include_inventory': True,  # Request inventory data
+                    'aza_orders' : True
                 }
                 
                 # Fetch sales orders
-                sales_orders = fetch_salesorders_by_customer_service(config)
+                sales_orders = fetch_aza_salesorders_by_customer_service(config)
                 
                 # Fetch inventory data separately for all mapped products
-                inventory_data = fetch_inventory_data(
+                inventory_data = fetch_aza_inventory_data(
                     zakya_connection, 
                     st.session_state.get('aza_product_mapping', {})
                 )
@@ -66,7 +67,7 @@ def aza_sales_orders_tab():
                         product_mapping = st.session_state.get('aza_product_mapping')
                         if product_mapping is not None:
                             # Analyze missing sales orders
-                            missing_orders = analyze_missing_salesorders(
+                            missing_orders = analyze_missing_aza_salesorders(
                                 aza_orders,
                                 product_mapping,
                                 sales_orders,
@@ -153,7 +154,7 @@ def aza_missing_sales_orders_container():
             # Check if we have all required data
             if aza_orders is not None and product_mapping and isinstance(sales_orders, pd.DataFrame):
                 # Analyze missing sales orders
-                missing_orders = analyze_missing_salesorders(
+                missing_orders = analyze_missing_aza_salesorders(
                     aza_orders,
                     product_mapping,
                     sales_orders,
@@ -231,7 +232,7 @@ def aza_missing_sales_orders_container():
             zakya_connection = get_zakya_connection()
             customer_id = st.session_state['customer_id']
             
-            results = create_missing_salesorders(
+            results = create_missing_aza_salesorders(
                 missing_orders, 
                 zakya_connection, 
                 customer_id,

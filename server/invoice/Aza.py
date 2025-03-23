@@ -227,7 +227,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 'error': str(e)
             }
 
-    async def find_existing_aza_salesorders(self, customer_id, config, include_inventory=True):
+    async def find_existing_aza_salesorders(self, customer_id,include_inventory=True):
         """
         Fetch and analyze existing sales orders for Aza products.
         
@@ -296,9 +296,9 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 def fetch_salesorder_data(sales_order_id):
                     try:
                         return fetch_object_for_each_id(
-                            config['base_url'],
-                            config['access_token'],
-                            config['organization_id'],
+                            self.zakya_connection_object['base_url'],
+                            self.zakya_connection_object['access_token'],
+                            self.zakya_connection_object['organization_id'],
                             f'salesorders/{sales_order_id}'
                         )
                     except Exception as e:

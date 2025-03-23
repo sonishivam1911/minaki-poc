@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime
 from config.logger import logger
-from server.ppus_invoice_service import analyze_products
+from server.aza_invoice_service import analyze_aza_products
 
 def aza_orders_section():
     """Create the Aza orders display section UI."""
@@ -49,7 +49,7 @@ def aza_orders_section():
         if st.button("Analyze Product Mapping", type="primary"):
             with st.spinner("Analyzing product mapping..."):
                 # Call the backend service to analyze product mapping
-                results = analyze_products(df, sku_field="SKU")
+                results = analyze_aza_products(df, sku_field="SKU")
                 
                 # Store results in session state
                 st.session_state['aza_mapped_products'] = results.get('mapped_products')
