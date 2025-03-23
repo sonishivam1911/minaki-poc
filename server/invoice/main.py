@@ -207,17 +207,20 @@ class InvoiceProcessor(ABC):
         
         # Get SKU field name based on child class
         sku_field = self.get_sku_field_name()
+        vendor_sku_field = self.get_vendor_field_name()
         
         for _, row in self.sales_df.iterrows():
             sku = row.get(sku_field, "").strip()
+            vendor_sku = row.get(vendor_sku_field, "").strip()
             if not sku:
+                missing_products.append(vendor_sku)
                 continue
                 
             product_tasks.append(self.find_product(sku))
             product_skus.append(sku)
         
         # Run product lookup tasks with concurrency limit
-        product_results = await self.run_limited_tasks(product_tasks, limit=3)
+        product_results = await self.run_limited_tasks(product_tasks, limit=1)
         
         # Process product results
         for sku, items_data in zip(product_skus, product_results):
@@ -243,6 +246,12 @@ class InvoiceProcessor(ABC):
         """Return the field name for SKU in the dataframe."""
         pass
 
+
+
+    @abstractmethod
+    def get_vendor_field_name(self):
+        """Return the field name for SKU in the dataframe."""
+        pass
 
 
     async def find_existing_salesorders(self):

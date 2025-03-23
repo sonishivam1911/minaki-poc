@@ -44,6 +44,8 @@ def aza_sales_orders_tab():
                     'include_inventory': True,  # Request inventory data
                     'aza_orders' : True
                 }
+
+                logger.debug(f"Config being passed to function is : {config}")
                 
                 # Fetch sales orders
                 sales_orders = fetch_aza_salesorders_by_customer_service(config)

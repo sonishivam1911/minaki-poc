@@ -228,3 +228,9 @@ class PerniaInvoiceProcessor(InvoiceProcessor):
                 "status": "Failed",
                 "error": str(e)
             }])
+        
+
+    
+    def get_vendor_field_name(self):
+        """Return the field name for SKU in the dataframe."""
+        return 'SKU Code'

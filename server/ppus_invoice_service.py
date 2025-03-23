@@ -1,10 +1,9 @@
 import re
 import streamlit as st
 import asyncio
-import aiohttp
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
-from datetime import datetime
 from dotenv import load_dotenv
 from utils.postgres_connector import crud
 from config.logger import logger
@@ -276,7 +275,7 @@ def process_sales_orders(order_data, customer_id, zakya_config, options=None):
                     zakya_config['base_url'],
                     zakya_config['access_token'],  
                     zakya_config['organization_id'],
-                    '/salesorders',
+                    'salesorders',
                     salesorder_payload
                 )
                 
@@ -395,6 +394,28 @@ def fetch_salesorders_by_customer_service(config):
         sales_orders_df = sales_orders_df[sales_orders_df['customer_id'] == config['customer_id']]
         logger.debug(f"Sales orders for customer {config['customer_id']}: {len(sales_orders_df)}")
         
+        # Add date range filtering 
+        if config.get('start_date'):
+            start_date = config['start_date']
+            
+            # Convert to datetime object if it's a string
+            if isinstance(start_date, str):
+                start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            
+            # Calculate the date 45 days before start_date
+            date_45_days_before = start_date - timedelta(days=45)
+            
+            # Convert dates for comparison
+            start_date_str = start_date.strftime('%Y-%m-%d')
+            date_45_days_before_str = date_45_days_before.strftime('%Y-%m-%d')
+            
+            # Filter sales orders to only include those between 45 days before start_date and start_date
+            sales_orders_df = sales_orders_df[
+                (sales_orders_df['date'] >= date_45_days_before_str) & 
+                (sales_orders_df['date'] <= start_date_str)
+            ]
+
+
         # Join with the salesorder_item_mapping to get item details
         sales_orders_df = pd.merge(
             left=sales_orders_df, 
@@ -765,7 +786,7 @@ def analyze_products(pernia_orders_df):
         
         # Find existing products
         product_config = asyncio.run(processor.find_existing_products())
-        # logger.debug(f"Product config is : {product_config}")
+        logger.debug(f"Product config is : {product_config}")
         
         # Format results
         mapped_products = []
@@ -807,7 +828,7 @@ def analyze_products(pernia_orders_df):
                 })
                 
                 # Add to mapping
-                # product_mapping[sku] = item_id
+                product_mapping[sku] = item_id
         
         logger.debug(f"Mapped Products : {product_mapping}")
         # Process unmapped products
@@ -825,6 +846,19 @@ def analyze_products(pernia_orders_df):
                     'po_value': row.get('PO Value', 0),
                     'error': 'Product not found in Zakya'
                 })
+            else:
+                matching_rows = pernia_orders_df[pernia_orders_df['SKU Code'] == sku]
+                row = matching_rows.iloc[0]
+                unmapped_products.append({
+                    'sku': '',
+                    'designer_name': row.get('Designer Name', ''),
+                    'po_number': row.get('PO Number', ''),
+                    'po_date': row.get('PO Date', ''),
+                    'po_value': row.get('PO Value', 0),
+                    'error': 'Product not found in Zakya'
+                })                
+                
+
         # Return the analysis results
         return {
             'mapped_products': mapped_products,
