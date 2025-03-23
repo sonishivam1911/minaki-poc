@@ -51,6 +51,8 @@ def zakya_api_interaction():
             elif operation == "retrieve":
                 endpoint1 = endpoint + "/" + object_id
                 response = retrieve_record_from_zakya(api_domain, access_token, organization_id, endpoint1)
+                # response = response.get(endpoint.rstrip("s"))
+                # print(response)
             elif operation == "post":
                 endpoint1 = endpoint + "/" + object_id
                 response = post_record_to_zakya(api_domain, access_token, organization_id, endpoint1)
