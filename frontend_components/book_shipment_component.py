@@ -116,13 +116,13 @@ def shipment_form_component():
         st.markdown("**Package Dimensions**")
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            length = st.number_input("Length (cm)", min_value=1, value=10)
+            length = st.number_input("Length (cm)", min_value=1, value=100)
         with col2:
-            breadth = st.number_input("Breadth (cm)", min_value=1, value=10)
+            breadth = st.number_input("Breadth (cm)", min_value=1, value=100)
         with col3:
-            height = st.number_input("Height (cm)", min_value=1, value=10)
+            height = st.number_input("Height (cm)", min_value=1, value=100)
         with col4:
-            weight = st.number_input("Weight (kg)", min_value=0.1, value=0.5)
+            weight = st.number_input("Weight (kg)", min_value=0.1, value=15)
         
         # Contact person details
         st.markdown("**Contact Person Details**")
@@ -131,7 +131,7 @@ def shipment_form_component():
             contact_name = st.text_input("Contact Name", value="")
             contact_phone = st.text_input("Contact Phone", value="")
         with col2:
-            contact_email = st.text_input("Contact Email", value="")
+            contact_email = 'noreply@shiprocket.in'
         
         # Submit button for the form
         check_couriers_submitted = st.form_submit_button("Check Available Couriers")

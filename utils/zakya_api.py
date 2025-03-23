@@ -125,7 +125,7 @@ def fetch_records_from_zakya(base_url,access_token,organization_id,endpoint):
     
 def retrieve_record_from_zakya(base_url,access_token,organization_id,endpoint):
     """
-    Fetch inventory items from Zakya API.
+    Fetch Record items from Zakya API.
     """
     url = f"{base_url}inventory/v1/{endpoint}"  
     headers = {
@@ -216,6 +216,7 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
         'Content-Type': 'application/json'
     }
 
+
     params = {
         'organization_id': organization_id,
     }
@@ -239,6 +240,31 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
     response.raise_for_status()  # Raise an error for bad responses
     return response.json() 
 
+def attach_zakya(base_url, access_token, organization_id, endpoint, pdf_path):
+    
+    url = f"{base_url}inventory/v1/{endpoint}"
+    
+    headers = {
+        'Authorization': f"Zoho-oauthtoken {access_token}",
+        'Content-Type': 'application/json'
+    }
+
+    files = {
+        'attachment': open(pdf_path, "rb")
+    }
+
+    params = {
+        'organization_id': organization_id,
+    }
+    response = requests.post(
+        url=url,
+        headers=headers,
+        params=params,
+        files=files
+    )
+    print(response.text)
+    response.raise_for_status()  # Raise an error for bad responses
+    return response.json() 
 
 def put_record_to_zakya(base_url, access_token, organization_id, endpoint, txn_id, payload):
     url = f"{base_url}inventory/v1/{endpoint}/{txn_id}"
