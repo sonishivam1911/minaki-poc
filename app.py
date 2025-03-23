@@ -15,6 +15,7 @@ load_dotenv()
 if "is_authenticated" not in st.session_state:
     st.session_state["is_authenticated"] = False
     st.session_state["username"] = None
+    st.session_state["token_generated"] = False
 
 def login_page():
     """Login page for user authentication."""
@@ -50,7 +51,7 @@ def main():
     zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
     
     
-    if not zakya_auth_df.empty and 'token_generated' in st.session_state:
+    if not zakya_auth_df.empty:
         try:
             set_access_token_via_refresh_token()
         except Exception as e:
@@ -59,8 +60,6 @@ def main():
             fetch_zakya_code()
     else:   
         set_refresh_token()
-
-    st.session_state['token_generated'] = True
 
     try:
         if 'access_token' in st.session_state:

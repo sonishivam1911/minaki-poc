@@ -1,9 +1,14 @@
 import asyncio
+import streamlit as st
 import pandas as pd
+from collections import defaultdict
 from abc import ABC, abstractmethod
 from utils.postgres_connector import crud
 from config.logger import logger
 from schema.zakya_schemas.schema import ZakyaContacts, ZakyaProducts
+from utils.zakya_api import fetch_object_for_each_id
+from server.reports.update_salesorder_items_id_mapping_table import sync_salesorder_mappings_sync
+from server.reports.update_invoice_item_ids_mapping_table import sync_invoice_mappings_sync
 from queries.zakya import queries
 from config.constants import (
     customer_mapping_zakya_contacts,
@@ -19,6 +24,7 @@ class InvoiceProcessor(ABC):
         self.invoice_date = invoice_date
         self.zakya_connection_object = zakya_connection_object
         self.product_config = None
+        self.salesorder_config = None
     
     async def create_whereclause_fetch_data(self, pydantic_model, filter_dict, query):
         """Fetch data using where clause asynchronously."""
@@ -33,10 +39,14 @@ class InvoiceProcessor(ABC):
     
     async def find_product(self, sku):
         """Find a product by SKU."""
-        items_data = await self.create_whereclause_fetch_data(ZakyaProducts, {
-            products_mapping_zakya_products['style']: {'op': 'eq', 'value': sku}
-        }, queries.fetch_prodouct_records)    
-        return items_data
+        try:
+            items_data = await self.create_whereclause_fetch_data(ZakyaProducts, {
+                products_mapping_zakya_products['style']: {'op': 'eq', 'value': sku}
+            }, queries.fetch_prodouct_records)    
+            return items_data
+        except Exception as e:
+            logger.debug(f"Error is {e}")
+            return None
     
     async def find_customer_by_name(self, customer_name):
         """Find a customer by name."""
@@ -57,8 +67,11 @@ class InvoiceProcessor(ABC):
         semaphore = asyncio.Semaphore(limit)
         
         async def run_with_semaphore(task):
-            async with semaphore:
-                return await task
+            try:
+                async with semaphore:
+                    return await task
+            except Exception as e:
+                logger.debug(f" Error is {e}")
         
         return await asyncio.gather(*[run_with_semaphore(task) for task in tasks])
     
@@ -70,12 +83,81 @@ class InvoiceProcessor(ABC):
     def fetch_item_id_sales_order_mapping(self):
         """Preprocess the sales data. To be implemented by subclasses."""
         zakya_salesorder_line_item_mapping_df = crud.read_table('zakya_salesorder_line_item_mapping')
-        return dict(zip(zakya_salesorder_line_item_mapping_df['item_id'], zakya_salesorder_line_item_mapping_df['line_item_id']))
+        item_line_item_map = defaultdict(list)
+        for item_id, line_item_id in zip(zakya_salesorder_line_item_mapping_df['item_id'], zakya_salesorder_line_item_mapping_df['line_item_id']):
+            item_line_item_map[item_id].append(line_item_id)        
+        return item_line_item_map
+
+
+    def fetch_item_id_invoice_mapping_df(self):
+        
+        zakya_invoice_line_item_mapping_df = crud.read_table('zakya_invoice_line_item_mapping')
+        return zakya_invoice_line_item_mapping_df
 
     @abstractmethod
     async def create_invoices(self):
         """Create invoices from processed data. To be implemented by subclasses."""
         pass
+
+    # async def find_existing_salesorders(self):
+
+    #     # find mapping for all salesorder and item id 
+    #     # if sales order is found need to check whether it is invoiced for this product previously ?
+    #     # if so then we look for other options , we find no options then store this not found salesorderid
+    #     # map existing and missing salesorder id
+    #     sync_salesorder_mappings_sync()
+    #     sync_invoice_mappings_sync()
+    #     saleorder_item_mapping_dict=self.fetch_item_id_sales_order_mapping()
+        
+    #     missing_items_without_salesorder = []
+    #     mapped_salesorder_with_item_id = {}
+
+
+    #     if self.product_config and 'existing_sku_item_id_mapping' in self.product_config:
+    #         for key,_ in self.product_config['existing_sku_item_id_mapping'].items():
+                
+    #             mapped_item_id = self.product_config['existing_sku_item_id_mapping'][key]
+
+    #             if mapped_item_id in saleorder_item_mapping_dict:
+    #                 # check whether salesorder has been invoiced
+    #                 salesorder_data=fetch_object_for_each_id( 
+    #                     st.session_state['api_domain'],
+    #                     st.session_state['access_token'],
+    #                     st.session_state['organization_id'],
+    #                     f'salesorders/{saleorder_item_mapping_dict[saleorder_item_mapping_dict]}'
+    #                 )
+
+    #                 invoices_list=salesorder_data['salesorder'].get('invoices',[])
+    #                 is_invoiced_salesorder = False
+    #                 if len(invoices_list) > 0:
+    #                     #  check wether this this product is invoiced
+    #                     invoice_item_mapping_df=self.fetch_item_id_invoice_mapping_df()
+    #                     for obj in invoices_list:
+    #                         invoice_id = obj.get('invoice_id','')
+    #                         filtered_df=invoice_item_mapping_df[
+    #                             invoice_item_mapping_df['invoice_id'] == invoice_id
+    #                             & invoice_item_mapping_df['item_id'] == mapped_item_id
+    #                             ]
+
+    #                         if not filtered_df.empty:
+    #                             is_invoiced_salesorder = True
+    #                             break
+
+    #                 if not is_invoiced_salesorder:
+    #                     mapped_salesorder_with_item_id[mapped_item_id] = saleorder_item_mapping_dict[saleorder_item_mapping_dict]
+    #                 else:
+    #                     missing_items_without_salesorder.append(mapped_item_id)
+    #             else:
+    #                 missing_items_without_salesorder.append(mapped_item_id)
+        
+    #     return {
+    #         'missing_items_without_salesorder' : missing_items_without_salesorder,
+    #         'mapped_salesorder_with_item_id' : mapped_salesorder_with_item_id
+    #     }
+
+        
+
+
     
     def process(self):
         """Main processing method."""
@@ -85,6 +167,15 @@ class InvoiceProcessor(ABC):
             
             # Find existing products
             self.product_config = asyncio.run(self.find_existing_products())
+
+            # if len(self.product_config['missing_products'])>0:
+            #     return self.product_config
+
+            # check missing products and then subsequently check for missing salesorder as well okay
+            self.salesorder_config = asyncio.run(self.find_existing_salesorders())
+
+            if len(self.salesorder_config['missing_items_without_salesorder']) > 0 or len(self.product_config['missing_products'])>0:
+                return {'salesorder' : self.salesorder_config,'product':self.product_config}
             
             # Create invoices
             invoice_object = {
@@ -108,6 +199,7 @@ class InvoiceProcessor(ABC):
         existing_products = []
         missing_products = []
         existing_sku_item_id_mapping = {}
+        existing_products_data_dict = {}
         
         # Prepare product lookup tasks
         product_tasks = []
@@ -125,13 +217,14 @@ class InvoiceProcessor(ABC):
             product_skus.append(sku)
         
         # Run product lookup tasks with concurrency limit
-        product_results = await self.run_limited_tasks(product_tasks, limit=10)
+        product_results = await self.run_limited_tasks(product_tasks, limit=3)
         
         # Process product results
         for sku, items_data in zip(product_skus, product_results):
             if items_data and not isinstance(items_data, dict) and "error" not in items_data and len(items_data) > 0:
                 existing_sku_item_id_mapping[sku] = items_data[0]["item_id"]
                 existing_products.append(sku)
+                existing_products_data_dict[items_data[0]["item_id"]]=items_data
             else:
                 missing_products.append(sku)
         
@@ -141,7 +234,8 @@ class InvoiceProcessor(ABC):
         return {
             "missing_products": missing_products,
             "existing_products": existing_products,
-            "existing_sku_item_id_mapping": existing_sku_item_id_mapping
+            "existing_sku_item_id_mapping": existing_sku_item_id_mapping,
+            "existing_products_data_dict" : existing_products_data_dict
         }
     
     @abstractmethod
@@ -150,5 +244,109 @@ class InvoiceProcessor(ABC):
         pass
 
 
+
+    async def find_existing_salesorders(self):
+        """
+        Find existing sales orders and check if they are already invoiced for specific items.
+        Returns information about mapped and unmapped items with their sales order status.
+        """
+        # Synchronize salesorder and invoice mappings
+        sync_salesorder_mappings_sync()
+        sync_invoice_mappings_sync()
+        
+        # Get mapping for all salesorder and item id
+        salesorder_item_mapping_dict = self.fetch_item_id_sales_order_mapping()
+        
+        # Initialize results containers
+        missing_items_without_salesorder = []
+        mapped_salesorder_with_item_id = {}
+        mapped_items_with_inventory = {}
+
+        # Process only if we have product mapping data
+        if self.product_config and 'existing_sku_item_id_mapping' in self.product_config:
+            # Fetch inventory data for all mapped items
+            mapped_item_ids = list(self.product_config['existing_sku_item_id_mapping'].values())
+            inventory_data = await self.fetch_inventory_data(mapped_item_ids)
+            
+            # Process each mapped product
+            for sku, item_id in self.product_config['existing_sku_item_id_mapping'].items():
+                # Store inventory data for this item
+                if item_id in inventory_data:
+                    mapped_items_with_inventory[item_id] = inventory_data[item_id]
+                
+                # Check if this item has a sales order
+                if item_id in salesorder_item_mapping_dict:
+                    # Get the sales order details
+                    salesorder_line_item_id = salesorder_item_mapping_dict[item_id]
+                    
+                    # Check if this sales order is already invoiced for this item
+                    is_invoiced = await self.check_if_item_invoiced(item_id, salesorder_line_item_id)
+                    
+                    if not is_invoiced:
+                        # Item has a valid sales order that can be used for invoicing
+                        mapped_salesorder_with_item_id[item_id] = salesorder_line_item_id
+                    else:
+                        # Item has a sales order but it's already invoiced
+                        missing_items_without_salesorder.append({
+                            'item_id': item_id,
+                            'sku': sku,
+                            'reason': 'Already invoiced'
+                        })
+                else:
+                    # Item doesn't have any sales order
+                    missing_items_without_salesorder.append({
+                        'item_id': item_id,
+                        'sku': sku,
+                        'reason': 'No sales order found'
+                    })
+        
+        return {
+            'missing_items_without_salesorder': missing_items_without_salesorder,
+            'mapped_salesorder_with_item_id': mapped_salesorder_with_item_id,
+            'inventory_data': mapped_items_with_inventory
+        }
+
+    async def check_if_item_invoiced(self, item_id, salesorder_line_item_id):
+        """Check if a specific item in a sales order is already invoiced."""
+        # Fetch invoice mappings
+        invoice_item_mapping_df = self.fetch_item_id_invoice_mapping_df()
+        
+        # Filter to find if this item_id is already in an invoice
+        if not invoice_item_mapping_df.empty:
+            filtered_df = invoice_item_mapping_df[
+                invoice_item_mapping_df['item_id'] == item_id
+            ]
+            
+            # If we found any invoice line items for this item_id, it's already invoiced
+            return not filtered_df.empty
+        
+        return False
+
+    async def fetch_inventory_data(self, item_ids):
+        """Fetch inventory data for a list of item IDs."""
+        inventory_data = {}
+        
+        try:
+            # Read product data from database
+            zakya_products_df = crud.read_table('zakya_products')
+            
+            # Filter to only include specified item IDs
+            if not zakya_products_df.empty:
+                filtered_products = zakya_products_df[zakya_products_df['item_id'].isin(item_ids)]
+                
+                # Create inventory data dictionary
+                for _, row in filtered_products.iterrows():
+                    item_id = row['item_id']
+                    inventory_data[item_id] = {
+                        'available_stock': row.get('available_stock', 0),
+                        'actual_available_stock': row.get('actual_available_stock', 0),
+                        'stock_on_hand': row.get('stock_on_hand', 0),
+                        'reorder_level': row.get('reorder_level', None),
+                        'track_inventory': row.get('track_inventory', False)
+                    }
+        except Exception as e:
+            logger.error(f"Error fetching inventory data: {e}")
+        
+        return inventory_data
 
 
