@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from utils.zakya_api import (get_authorization_url
     ,fetch_object_for_each_id
-    ,fetch_records_from_zakya)
+    ,fetch_records_from_zakya, retrieve_record_from_zakya)
 
 from utils.postgres_connector import crud
 
@@ -126,6 +126,23 @@ def zakya_integration_function():
                 if st.button("Save to Database",on_click=handle_on_click_button, args=(invoices_data,'zakya_invoices')): 
                     st.success("zakya_invoices saved to database successfully!") 
 
+    if st.button("Show Bills"):
+        with st.container():
+            st.header("Bills")
+            bills_data = fetch_records_from_zakya(
+                    st.session_state['api_domain'],
+                    st.session_state['access_token'],
+                    st.session_state['organization_id'],
+                    '/bills'                  
+            )
+            bills_record = extract_record_list(bills_data,"bills")
+           
+            show_preview = st.checkbox("Show/Hide Bills",value=True)
+            if show_preview:                 
+                bills_data = pd.DataFrame.from_records(bills_record)
+                st.dataframe(bills_data)                   
+                if st.button("Save to Database",on_click=handle_on_click_button, args=(bills_data,'zakya_bills')): 
+                    st.success("zakya_bills saved to database successfully!") 
 
     if st.button("Show Price Books"):
         with st.container():
