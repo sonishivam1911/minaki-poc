@@ -54,8 +54,6 @@ def pernia_orders_section():
                 st.session_state['mapped_products'] = results.get('mapped_products')
                 st.session_state['unmapped_products'] = results.get('unmapped_products')
                 st.session_state['product_mapping'] = results.get('product_mapping', {})
-
-                # st.info(f"Product Mapping : {st.session_state['product_mapping']}")
                 
                 # Display summary of analysis
                 mapped_count = len(results.get('mapped_products', []))

@@ -1,14 +1,10 @@
 import pandas as pd
 import asyncio
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor
 import re
 import streamlit as st
 from config.logger import logger
 from utils.postgres_connector import crud
-from utils.common_filtering_database_function import find_product
-from utils.zakya_api import fetch_records_from_zakya, post_record_to_zakya, fetch_object_for_each_id
-from core.helper_zakya import extract_record_list
 from server.invoice.route import AzaInvoiceProcessor
 
 def analyze_aza_products(aza_orders_df, sku_field="SKU"):
@@ -48,6 +44,8 @@ def analyze_aza_products(aza_orders_df, sku_field="SKU"):
         
         # Use the processor's analyze_uploaded_products method
         product_analysis = asyncio.run(processor.analyze_uploaded_products())
+
+        logger.debug(f"Product analysis is : {product_analysis}")
         
         return product_analysis
     except Exception as e:
@@ -96,119 +94,6 @@ def fetch_aza_salesorders_by_customer_service(config):
         logger.debug(f"Result after fetch sales order is : {result}")
         return result
         
-    #     # Fetch all sales orders directly if no Aza orders provided
-    #     sales_orders_data = fetch_records_from_zakya(
-    #         config['base_url'],
-    #         config['access_token'],
-    #         config['organization_id'],
-    #         '/salesorders'
-    #     )
-
-    #     salesorder_item_mapping_df = crud.read_table('zakya_salesorder_line_item_mapping')
-        
-    #     # Extract sales orders
-    #     all_orders = extract_record_list(sales_orders_data, "salesorders")
-        
-    #     # Convert to DataFrame for easier filtering
-    #     sales_orders_df = pd.DataFrame(all_orders)
-
-    #     logger.debug(f"Total sales orders fetched: {len(sales_orders_data)}")
-        
-    #     # Filter to only include the selected customer
-    #     sales_orders_df = sales_orders_df[sales_orders_df['customer_id'] == config['customer_id']]
-    #     logger.debug(f"Sales orders for customer {config['customer_id']}: {len(sales_orders_df)}")
-        
-    #     # Join with the salesorder_item_mapping to get item details
-    #     sales_orders_df = pd.merge(
-    #         left=sales_orders_df, 
-    #         right=salesorder_item_mapping_df,
-    #         how='left', 
-    #         on=['salesorder_id']
-    #     )
-        
-    #     # Process invoice status
-    #     if not sales_orders_df.empty:
-    #         invoice_item_mapping_df = crud.read_table('zakya_invoice_line_item_mapping')
-            
-    #         # Add invoice status column
-    #         sales_orders_df['Invoice Status'] = 'Not Invoiced'
-            
-    #         # Check invoice status for each item
-    #         for idx, row in sales_orders_df.iterrows():
-    #             if 'item_id' in row and not pd.isna(row['item_id']):
-    #                 item_id = row['item_id']
-                    
-    #                 # Check if this item is in any invoice
-    #                 if not invoice_item_mapping_df.empty:
-    #                     invoice_matches = invoice_item_mapping_df[
-    #                         invoice_item_mapping_df['item_id'] == item_id
-    #                     ]
-                        
-    #                     if not invoice_matches.empty:
-    #                         invoice_num = invoice_matches.iloc[0].get('invoice_number', '')
-    #                         sales_orders_df.at[idx, 'Invoice Status'] = f"Invoiced ({invoice_num})"
-        
-    #     # Add inventory data if requested
-    #     if config.get('include_inventory', False) and not sales_orders_df.empty:
-    #         # Fetch product data
-    #         zakya_products_df = crud.read_table('zakya_products')
-            
-    #         # Add inventory data to each row
-    #         for idx, row in sales_orders_df.iterrows():
-    #             if 'item_id' in row and not pd.isna(row['item_id']):
-    #                 item_id = row['item_id']
-                    
-    #                 product_rows = zakya_products_df[zakya_products_df['item_id'] == item_id]
-    #                 if not product_rows.empty:
-    #                     product_row = product_rows.iloc[0]
-    #                     sales_orders_df.at[idx, 'Available Stock'] = product_row.get('available_stock', 0)
-    #                     sales_orders_df.at[idx, 'Stock on Hand'] = product_row.get('stock_on_hand', 0)
-        
-    #     # Format and return the results
-    #     if not sales_orders_df.empty:
-    #         # Group by relevant fields and calculate aggregates
-    #         grouped_df = sales_orders_df.groupby(
-    #             ['salesorder_number', 'item_name', 'date', 'item_id', 'Invoice Status']
-    #         ).agg({
-    #             'quantity': 'sum',
-    #             'rate': 'mean',
-    #             'amount': 'sum'
-    #         }).reset_index()
-            
-    #         # Rename columns for clarity
-    #         renamed_df = grouped_df.rename(columns={
-    #             'salesorder_number': 'Order Number',
-    #             'item_name': 'Item Name',
-    #             'date': 'Order Date',
-    #             'quantity': 'Total Quantity',
-    #             'rate': 'Average Rate',
-    #             'amount': 'Total Amount'
-    #         })
-            
-    #         # Add inventory columns if they exist
-    #         if 'Available Stock' in sales_orders_df.columns:
-    #             inventory_data = sales_orders_df.groupby(
-    #                 ['item_id']
-    #             ).agg({
-    #                 'Available Stock': 'first',
-    #                 'Stock on Hand': 'first'
-    #             }).reset_index()
-                
-    #             renamed_df = pd.merge(
-    #                 left=renamed_df,
-    #                 right=inventory_data,
-    #                 how='left',
-    #                 on=['item_id']
-    #             )
-            
-    #         return renamed_df
-        
-    #     return pd.DataFrame()
-        
-    # except Exception as e:
-    #     logger.error(f"Error fetching Aza sales orders: {str(e)}")
-    #     return pd.DataFrame()
-
 def analyze_missing_aza_salesorders(aza_orders, product_mapping, sales_orders, sku_field="SKU"):
     """
     Analyze which Aza products need sales orders.

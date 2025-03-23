@@ -220,9 +220,9 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
         'organization_id': organization_id,
     }
 
-    if "salesorders" in endpoint:
-        params['ignore_auto_number_generation'] = True
-    elif "invoices" in endpoint:
+    # if "salesorders" in endpoint:
+    #     params['ignore_auto_number_generation'] = True
+    if "invoices" in endpoint:
         params['ignore_auto_number_generation'] = True
     elif "packages" in endpoint and 'salesorder_id' in extra_args:
         params['salesorder_id'] = extra_args['salesorder_id']

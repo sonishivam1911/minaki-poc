@@ -50,6 +50,7 @@ def customer_selection_section():
         default_end_date = datetime.now()
         default_start_date = default_end_date - timedelta(days=30)
         start_date = st.date_input("Start Date", default_start_date)
+        st.session_state['start_end'] = start_date
     
     with col3:
         end_date = st.date_input("End Date", default_end_date)

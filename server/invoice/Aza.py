@@ -1,8 +1,6 @@
 
 import pandas as pd
-from datetime import datetime
-import asyncio
-import aiohttp
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from config.logger import logger
 from utils.postgres_connector import crud
@@ -199,7 +197,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             for sku in product_config.get('missing_products', []):
                 # Find matching row in Aza orders
                 matching_rows = self.sales_df[self.sales_df['SKU'] == sku]
-                
+                logger.debug(f"Matched rows : {self.sales_df['SKU']}")
                 if not matching_rows.empty:
                     row = matching_rows.iloc[0]
                     unmapped_products.append({
@@ -258,6 +256,19 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             
             # Filter to only include the selected customer
             sales_orders_df = sales_orders_df[sales_orders_df['customer_id'] == customer_id]
+            start_date = self.invoice_date - timedelta(days=5)
+
+            date_45_days_before = start_date - timedelta(days=60)
+            
+            # Convert dates for comparison
+            start_date_str = start_date.strftime('%Y-%m-%d')
+            date_45_days_before_str = date_45_days_before.strftime('%Y-%m-%d')
+            
+            # Filter sales orders to only include those between 45 days before start_date and start_date
+            sales_orders_df = sales_orders_df[
+                (sales_orders_df['date'] >= date_45_days_before_str) & 
+                (sales_orders_df['date'] <= start_date_str)
+            ]            
             
             # Join with the salesorder_item_mapping to get item details
             sales_orders_df = pd.merge(
@@ -308,8 +319,8 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 # Function to check if an item is invoiced (to be run in parallel)
                 def check_if_invoiced(row):
 
-                    # row_id = row.get('salesorder_id', 'unknown')
-                    # logger.debug(f"Checking invoice for row with sales order ID: {row_id}")                
+                    row_id = row.get('salesorder_id', 'unknown')
+                    logger.debug(f"Checking invoice for row with sales order ID: {row_id}")                
                     if invoice_item_mapping_df.empty or 'item_id' not in row or pd.isna(row['item_id']):
                         return "Not Invoiced"
                     
@@ -399,16 +410,16 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             if not mapped_sales_order_with_product_df.empty:
                 # Group by salesorder, item name, and date, then calculate aggregates
                 grouped_df = mapped_sales_order_with_product_df.groupby(
-                    ['salesorder_number', 'item_name', 'date', 'item_id', 'Invoice Status']
+                    ['salesorder_number_x', 'item_name', 'date', 'item_id', 'Invoice Status']
                 ).agg({
-                    'quantity': 'sum',
+                    'quantity_y': 'sum',
                     'rate': 'mean',
                     'amount': 'sum'
                 }).reset_index()
                 
                 # Rename columns for clarity
                 renamed_df = grouped_df.rename(columns={
-                    'salesorder_number': 'Order Number',
+                    'salesorder_number_x': 'Order Number',
                     'item_name': 'Item Name',
                     'date': 'Order Date',
                     'quantity': 'Total Quantity',
