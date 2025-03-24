@@ -4,10 +4,8 @@ from datetime import datetime
 import time
 
 # Import the async mapping service
-from server.reports.invoice_reports import (
-    run_async_task, 
-    create_invoice_mapping_async, 
-    create_salesorder_mapping_async
+from server.reports.create_salesorder_retreive_table import (
+    sync_salesorder_mappings_sync
 )
 
 # Page configuration
@@ -77,29 +75,16 @@ def process_mappings(batch_size):
         
         # Process invoice mappings
         add_log("Processing invoice mappings...")
-        start_time = time.time()
-        invoice_df = run_async_task(create_invoice_mapping_async, batch_size)
-        invoice_time = time.time() - start_time
-        
-        if not invoice_df.empty:
-            st.session_state.invoice_result = {
-                "success": True,
-                "count": len(invoice_df),
-                "time": invoice_time
-            }
-            add_log(f"Successfully processed {len(invoice_df)} invoice line items in {invoice_time:.2f} seconds", "success")
-        else:
-            st.session_state.invoice_result = {
-                "success": False,
-                "message": "No invoice data was processed",
-                "time": invoice_time
-            }
-            add_log("No invoice data was processed", "warning")
-        
+        config = {
+                'organization_id' : st.session_state['organization_id'],
+                'access_token' : st.session_state['access_token'],
+                'api_domain' : st.session_state['api_domain'],
+                'batch_size' : 3,
+            }        
         # Process sales order mappings
         add_log("Processing sales order mappings...")
         start_time = time.time()
-        salesorder_df = run_async_task(create_salesorder_mapping_async, batch_size)
+        salesorder_df = sync_salesorder_mappings_sync(config)
         salesorder_time = time.time() - start_time
         
         if not salesorder_df.empty:
@@ -117,7 +102,7 @@ def process_mappings(batch_size):
             }
             add_log("No sales order data was processed", "warning")
         
-        total_time = invoice_time + salesorder_time
+        total_time = salesorder_time
         add_log(f"Completed all processing in {total_time:.2f} seconds", "success")
         
     except Exception as e:
@@ -169,27 +154,6 @@ def main():
         st.markdown('<div class="section-header">Processing Results</div>', unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.session_state.invoice_result:
-                result = st.session_state.invoice_result
-                if result.get("success"):
-                    st.markdown(f"""
-                    <div class="status-container status-success">
-                        <h3>✅ Invoice Mapping Complete</h3>
-                        <p>Successfully processed <b>{result.get('count', 0)}</b> invoice line items.</p>
-                        <p>Processing time: <b>{result.get('time', 0):.2f}</b> seconds</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div class="status-container status-error">
-                        <h3>❌ Invoice Mapping Issue</h3>
-                        <p>{result.get('message', 'No data was processed')}</p>
-                        <p>Processing time: <b>{result.get('time', 0):.2f}</b> seconds</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-        
         with col2:
             if st.session_state.salesorder_result:
                 result = st.session_state.salesorder_result
@@ -232,7 +196,7 @@ def main():
         
         if st.button("Clear Log"):
             st.session_state.log_messages = []
-            st.experimental_rerun()
+            # st.experimental_rerun()
 
 if __name__ == "__main__":
     main()

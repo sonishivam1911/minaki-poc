@@ -45,7 +45,7 @@ def analyze_aza_products(aza_orders_df, sku_field="SKU"):
         # Use the processor's analyze_uploaded_products method
         product_analysis = asyncio.run(processor.analyze_uploaded_products())
 
-        logger.debug(f"Product analysis is : {product_analysis}")
+        logger.debug(f"Product analysis is : {product_analysis.keys()}")
         
         return product_analysis
     except Exception as e:
@@ -72,8 +72,10 @@ def fetch_aza_salesorders_by_customer_service(config):
     Returns:
         DataFrame: Sales orders with enhanced data
     """
+    logger.debug(f'Config is : {config}')
     # Create a processor instance
     if 'aza_orders' in config:
+        logger.debug('fetch_aza_salesorders_by_customer_service is called')
         processor = AzaInvoiceProcessor(
             config['aza_orders'], 
             datetime.now(),
@@ -84,15 +86,17 @@ def fetch_aza_salesorders_by_customer_service(config):
             },
             "Aza Customer"  # Placeholder, not used in this context
         )
-        
-        # Call the processor method
-        result = asyncio.run(processor.find_existing_aza_salesorders(
-            config['customer_id'],
-            config.get('include_inventory', True)
-        ))
-        
-        logger.debug(f"Result after fetch sales order is : {result}")
-        return result
+        try:
+            # Call the processor method
+            result = asyncio.run(processor.find_existing_aza_salesorders(
+                config['customer_id'],
+                config.get('include_inventory', True)
+            ))
+            
+            logger.debug(f"Result after fetch sales order is : {result}")
+            return result
+        except Exception as e:
+            logger.debug(f'Error is {e}')
         
 def analyze_missing_aza_salesorders(aza_orders, product_mapping, sales_orders, sku_field="SKU"):
     """

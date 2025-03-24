@@ -18,10 +18,14 @@ def aza_sales_orders_tab():
         st.info("No Aza orders loaded. Please upload an Aza sales file first.")
         return
     
+    # st.info(f"Mappend proucts are : {st.session_state.get('aza_mapped_products')}")
+    
     # Check if product mapping analysis has been done
     if st.session_state.get('aza_mapped_products') is None and st.session_state.get('aza_unmapped_products') is None:
         st.warning("Please click 'Analyze Product Mapping' in the Aza Orders section first.")
         return
+    
+    # st.info(f"aza_sales_orders are : {st.session_state.get('aza_sales_orders')}")
     
     # Fetch sales orders if not already done
     if st.session_state.get('aza_sales_orders') is None:
@@ -35,6 +39,7 @@ def aza_sales_orders_tab():
                     st.error("Customer ID not found. Please select a customer first.")
                     return
                 
+                logger.debug(f"Config being passed to function is : {zakya_connection}")
                 # Prepare config for API call
                 config = {
                     'base_url': zakya_connection.get('base_url'),
@@ -42,7 +47,7 @@ def aza_sales_orders_tab():
                     'organization_id': zakya_connection.get('organization_id'),
                     'customer_id': customer_id,
                     'include_inventory': True,  # Request inventory data
-                    'aza_orders' : True
+                    'aza_orders' : st.session_state['aza_orders']
                 }
 
                 logger.debug(f"Config being passed to function is : {config}")
@@ -69,7 +74,7 @@ def aza_sales_orders_tab():
                         product_mapping = st.session_state.get('aza_product_mapping')
                         if product_mapping is not None:
                             # Analyze missing sales orders
-                            missing_orders = analyze_missing_aza_salesorders(
+                            missing_orders, present_orders = analyze_missing_aza_salesorders(
                                 aza_orders,
                                 product_mapping,
                                 sales_orders,
@@ -78,6 +83,8 @@ def aza_sales_orders_tab():
                             
                             logger.debug(f"Missing Sales Order : {missing_orders}")
                             st.session_state['aza_missing_sales_orders'] = missing_orders
+                            st.session_state['present_orders'] = present_orders
+                            present_orders
                             
                             # Update mapping status
                             update_aza_product_mapping_status()
@@ -130,7 +137,8 @@ def aza_existing_sales_orders_container():
         sales_orders = sales_orders.apply(add_inventory_data, axis=1)
     
     # Display sales orders with enhanced columns
-    st.dataframe(sales_orders, use_container_width=True)
+    if 'present_orders' in st.session_state:
+        st.dataframe(st.session_state['present_orders'], use_container_width=True)
     
     # Download button
     csv = sales_orders.to_csv(index=False).encode('utf-8')
@@ -156,13 +164,14 @@ def aza_missing_sales_orders_container():
             # Check if we have all required data
             if aza_orders is not None and product_mapping and isinstance(sales_orders, pd.DataFrame):
                 # Analyze missing sales orders
-                missing_orders = analyze_missing_aza_salesorders(
+                missing_orders,present_orders = analyze_missing_aza_salesorders(
                     aza_orders,
                     product_mapping,
                     sales_orders,
                     sku_field="SKU"
                 )
                 st.session_state['aza_missing_sales_orders'] = missing_orders
+                st.session_state['present_orders'] = present_orders
                 
                 # Update the all items mapped flag
                 update_aza_product_mapping_status()
