@@ -54,11 +54,12 @@ def zakya_api_interaction():
                 # response = response.get(endpoint.rstrip("s"))
                 # print(response)
             elif operation == "post":
-                endpoint1 = endpoint + "/" + object_id
-                response = post_record_to_zakya(api_domain, access_token, organization_id, endpoint1)
+                
+                response = post_record_to_zakya(api_domain, access_token, organization_id, endpoint)
 
             elif operation == "put":
-                response = put_record_to_zakya(api_domain, access_token, organization_id, endpoint, payload)
+                endpoint1 = endpoint + "/" + object_id
+                response = put_record_to_zakya(api_domain, access_token, organization_id, endpoint1, payload)
             else:
                 response = {"error": "Invalid operation selected"}
 

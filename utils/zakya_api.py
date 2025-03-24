@@ -236,7 +236,7 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
         params=params,
         json=payload
     )
-    print(response.text)
+    # print(response.text)
     response.raise_for_status()  # Raise an error for bad responses
     return response.json() 
 
