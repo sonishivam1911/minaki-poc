@@ -27,11 +27,11 @@ def fetch_all_salesorder_and_mapping_records_from_database():
         
     all_orders = extract_record_list(sales_orders_data, "salesorders")
     all_orders_df = pd.DataFrame(all_orders)
-    logger.info(f"Found {len(all_orders_df)} total sales orders in Zakya")
+    # logger.info(f"Found {len(all_orders_df)} total sales orders in Zakya")
     
     # Step 3: Identify sales orders that need mapping
     new_orders_df = all_orders_df[~all_orders_df['salesorder_id'].isin(existing_salesorder_ids)]
-    logger.info(f"Found {len(new_orders_df)} sales orders that need mapping")
+    # logger.info(f"Found {len(new_orders_df)} sales orders that need mapping")
     
     if new_orders_df.empty:
         return pd.DataFrame(),  existing_mappings_df   

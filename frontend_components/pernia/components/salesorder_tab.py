@@ -40,9 +40,14 @@ def sales_orders_tab():
                     'access_token': zakya_connection.get('access_token'),
                     'organization_id': zakya_connection.get('organization_id'),
                     'customer_id': customer_id,
-                    'include_inventory': True  # Request inventory data
-                }
+                    'include_inventory': True,
+                    'start_date': st.session_state.get('start_date'),  # Add start date
+                     'end_date': st.session_state.get('end_date'),
+                    'date_filter_days': 45  # Add days to filter                    
+                                }
                 
+                st.info(f"Start date is : {st.session_state.get('start_date')}")
+                st.info(f"End date is : {st.session_state.get('end_date')}")
                 # Fetch sales orders
                 sales_orders = fetch_salesorders_by_customer_service(config)
                 
@@ -66,7 +71,7 @@ def sales_orders_tab():
                         # st.info(f"Product Mapping : {product_mapping}")
                         if product_mapping is not None:
                             # Analyze missing sales orders
-                            missing_orders = analyze_missing_salesorders(
+                            missing_orders,present_orders = analyze_missing_salesorders(
                                 pernia_orders,
                                 product_mapping,
                                 sales_orders
@@ -74,6 +79,7 @@ def sales_orders_tab():
                             
                             logger.debug(f"Mising Sales Order : {missing_orders}")
                             st.session_state['missing_sales_orders'] = missing_orders
+                            st.session_state['present_orders'] = present_orders
                             
                             # Update mapping status
                             update_product_mapping_status()
@@ -92,7 +98,7 @@ def sales_orders_tab():
     missing_sales_orders_container()
 
 def existing_sales_orders_container():
-    """Container 1: Display existing sales orders."""
+    """Container 1: Display existing sales orders with item mapping details."""
     if st.session_state.get('sales_orders') is None:
         st.info("Click 'Fetch Existing Sales Orders' to see sales orders mapped to these products.")
         return
@@ -125,8 +131,28 @@ def existing_sales_orders_container():
         # Apply the function to each row
         sales_orders = sales_orders.apply(add_inventory_data, axis=1)
     
-    # Display sales orders with enhanced columns
-    st.dataframe(sales_orders, use_container_width=True)
+    # Filter for products with "Received and QC Pass" status
+    if 'Product Status' in sales_orders.columns:
+        sales_orders = sales_orders[sales_orders['Product Status'] == 'Received and QC Pass']
+        if sales_orders.empty:
+            st.warning("No sales orders found with 'Received and QC Pass' status.")
+            return
+    
+    # Enhance display to show sales order to item mapping
+    # Group by relevant columns to show item-to-sales-order mapping
+    display_columns = ['Order Number', 'Item Name', 'item_id', 'Order Date', 
+                      'Total Quantity', 'Average Rate', 'Total Amount',
+                      'Available Stock', 'Stock on Hand', 'Invoice Status']
+    
+    # Ensure all required columns exist
+    existing_columns = set(sales_orders.columns)
+    valid_columns = [col for col in display_columns if col in existing_columns]
+    
+    # Display the filtered data
+    st.dataframe(st.session_state['present_orders'], use_container_width=True)
+    
+    # Add explanatory text
+    st.caption("This table shows all items with 'Received and QC Pass' status that are mapped to sales orders.")
     
     # Download button
     csv = sales_orders.to_csv(index=False).encode('utf-8')
@@ -154,12 +180,13 @@ def missing_sales_orders_container():
             # Check if we have all required data
             if pernia_orders is not None and product_mapping and isinstance(sales_orders, pd.DataFrame):
                 # Analyze missing sales orders
-                missing_orders = analyze_missing_salesorders(
+                missing_orders,present_orders = analyze_missing_salesorders(
                     pernia_orders,
                     product_mapping,
                     sales_orders
                 )
                 st.session_state['missing_sales_orders'] = missing_orders
+                st.session_state['present_orders'] = present_orders
                 
                 # Update the all items mapped flag
                 update_product_mapping_status()

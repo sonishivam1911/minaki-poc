@@ -50,6 +50,7 @@ def customer_selection_section():
         default_end_date = datetime.now()
         default_start_date = default_end_date - timedelta(days=30)
         start_date = st.date_input("Start Date", default_start_date)
+        st.session_state['start_end'] = start_date
     
     with col3:
         end_date = st.date_input("End Date", default_end_date)
@@ -93,6 +94,8 @@ def fetch_pernia_orders(start_date, end_date):
     # Convert dates to string format
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
+    st.session_state['start_date'] = start_date_str
+    st.session_state['end_date'] = end_date_str
     input_params = {
         'start_date': start_date_str,
         'end_date': end_date_str
@@ -100,6 +103,7 @@ def fetch_pernia_orders(start_date, end_date):
     
     with st.spinner("Fetching Pernia orders..."):
         orders = fetch_pernia_data_from_database(input_params)
+
         
         if not orders or len(orders) == 0:
             st.warning("No Pernia orders found in the selected date range.")

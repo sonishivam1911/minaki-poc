@@ -15,7 +15,7 @@ def zakya_api_interaction():
     st.header("Zakya API Playground")
 
     # Radio buttons to select the operation
-    operation = st.radio("Choose API Operation:", ["fetch", "retrieve", "post", "put"])
+    operation = st.radio("Choose API Operation:", ["fetch", "retrieve", "post", "put", "post-args"])
 
     # Input for API endpoint
     endpoint = st.text_input("API Endpoint", placeholder="endpoint")
@@ -26,9 +26,12 @@ def zakya_api_interaction():
         object_id = st.text_input("Object ID", placeholder="object_id")
 
     # Input for payload (only for POST & PUT)
+    extra_args = {}
     payload = None
-    if operation in ["post", "put"]:
+    if operation in ["post-args", "put", "post"]:
         payload_input = st.text_area("Payload (JSON)", placeholder='{"key": "value"}')
+        if operation == "post-args":
+            extra_args['salesorder_id'] = st.text_input("Sales order id", placeholder='salesorder id')
         if payload_input:
             try:
                 payload = json.loads(payload_input)  # Convert string to JSON
@@ -54,8 +57,11 @@ def zakya_api_interaction():
                 # response = response.get(endpoint.rstrip("s"))
                 # print(response)
             elif operation == "post":
-                
                 response = post_record_to_zakya(api_domain, access_token, organization_id, endpoint, payload)
+                print(response)
+            elif operation == "post-args":
+                response = post_record_to_zakya(api_domain, access_token, organization_id, endpoint, payload, extra_args)
+                print(response)
 
             elif operation == "put":
                 endpoint1 = endpoint + "/" + object_id

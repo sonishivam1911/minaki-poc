@@ -11,6 +11,9 @@ def initialize_session_state():
         st.session_state['customer_id'] = None
     if 'pernia_orders' not in st.session_state:
         st.session_state['pernia_orders'] = None
+
+    if 'start_end' not in st.session_state:
+        st.session_state['start_end'] = None
     
     # Product mapping data
     if 'mapped_products' not in st.session_state:

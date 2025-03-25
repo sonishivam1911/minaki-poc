@@ -169,8 +169,10 @@ def display_and_select_couriers(courier_df):
         courier_row = courier_df[courier_df['courier_company_id'] == courier_id]
         courier_name = courier_row['courier_name'].iloc[0]
         rate = courier_row['rate'].iloc[0]
+        st.session_state['shipping_rate'] = rate
         etd = courier_row['etd'].iloc[0]
-        return f"{courier_name} - ₹{rate} ({etd} days)"
+        st.session_state['shipping_etd'] = etd
+        return f"{courier_name} - ₹{rate} ({etd})"
 
     selected_courier = st.selectbox(
         "Select Courier Service",
