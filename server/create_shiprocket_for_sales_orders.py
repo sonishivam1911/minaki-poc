@@ -74,6 +74,8 @@ def create_shiprocket_sr_forward(config):
         "height": config['height'],
         "weight": config['weight'],
         "courier_id": config['courier_id'],
+        "generate_label": True,
+        "generate_manifest": True,
         "pickup_location": "warehouse",  # Default value
         "request_pickup": True,          # Default value
         "ewaybill_no": None              # Default value
