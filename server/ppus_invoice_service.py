@@ -62,7 +62,7 @@ def fetch_salesorders_by_customer(config):
 
         items_data_result = []
         for indx,row in config['pernia_orders'].iterrows():
-            sku = row.get("Vendor Code"," ")
+            sku = row.get("Vendor Code"," ") if row.get("Vendor Code") else ''
             #logger.debug(f"Sku is : {sku}")
             if len(sku) > 0:
                 item=find_product(sku)
@@ -760,7 +760,7 @@ def analyze_missing_salesorders(pernia_orders, product_mapping, sales_orders):
     
     # Check each Pernia order item
     for idx, row in pernia_orders.iterrows():
-        sku = row.get('Vendor Code', '').strip()
+        sku = row.get('Vendor Code', '').strip() if row.get('Vendor Code') else ''
         po_number = str(row.get('PO Number'))
 
         if not po_number:

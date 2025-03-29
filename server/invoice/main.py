@@ -148,7 +148,7 @@ class InvoiceProcessor(ABC):
         vendor_sku_field = self.get_vendor_field_name()
         
         for _, row in self.sales_df.iterrows():
-            sku = row.get(sku_field, "").strip()
+            sku = row.get(sku_field, "").strip() if row.get(sku_field) else ''
             vendor_sku = row.get(vendor_sku_field, "")
             if not sku:
                 missing_products.append(vendor_sku)
