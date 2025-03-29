@@ -23,7 +23,7 @@ def invoice_tab():
     sales_orders = st.session_state.get('sales_orders')
     present_orders = st.session_state.get('present_orders')
     missing_orders = st.session_state.get('missing_sales_orders')
-    missng_salesorder_reference_number_mapping = st.session_state.get('missng_salesorder_reference_number_mapping')
+    missng_salesorder_reference_number_mapping = st.session_state.get('missng_salesorder_reference_number_mapping',{})
 
 
     st.write(f"Ready to generate invoices for {len(pernia_orders)} Pernia orders.")
