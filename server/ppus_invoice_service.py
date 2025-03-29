@@ -674,6 +674,7 @@ def fetch_salesorders_by_customer_service(config):
             ['salesorder_number_x', 'name', 'date_x', 'item_id', 'Invoice Status', 'Mapped Salesorder ID', 'extracted_po','hsn_or_sac']
         ).agg({
             'quantity_y': 'sum',  # Sum quantities for same item in same order
+            'quantity_invoiced_y' : 'sum',
             'rate': 'mean',      # Average rate
             'total_x': 'sum'      # Sum amounts
         }).reset_index()
@@ -686,7 +687,8 @@ def fetch_salesorders_by_customer_service(config):
             'date_x': 'Order Date',
             'quantity_y': 'Total Quantity',
             'rate': 'Average Rate',
-            'total_x': 'Total Amount'
+            'total_x': 'Total Amount',
+            'quantity_invoiced_y' : 'Quantity Invoiced'
         })
 
         # Add inventory columns if they exist
@@ -780,6 +782,7 @@ def analyze_missing_salesorders(pernia_orders, product_mapping, sales_orders):
         # Convert Pernia order row to dict for both cases
         pernia_item = row.to_dict()
         pernia_item['item_id'] = item_id
+        pernia_item['Quantity Invoiced'] = False
         pernia_item['is_mapped'] = False if pernia_item['item_id'] == '' or not pernia_item['item_id'] else True
 
         sales_records_row = sales_orders[sales_orders['Mapped POs'] == po_number].to_dict('records')
@@ -789,6 +792,7 @@ def analyze_missing_salesorders(pernia_orders, product_mapping, sales_orders):
             item_id = sales_records_row[0]['item_id']
             pernia_item['item_id'] = item_id
             pernia_item['is_mapped'] = False if pernia_item['item_id'] == '' or not pernia_item['item_id'] else True
+            pernia_item['Quantity Invoiced'] = False if sales_records_row[0]['Quantity Invoiced'] == 0 else True
             # It's present - get the associated lowest sales order info
             present_items.append(pernia_item)
         else:
@@ -1228,7 +1232,7 @@ def create_invoice_from_sales_orders(
             processed_po_numbers.append(reference_number)
 
             # check if len of line items is 10 then create invoice - 
-            if len(line_item)==10:
+            if len(line_items)==10:
                 # Create invoice payload
                 invoice_payload = {
                     "customer_id": customer_id,
@@ -1320,7 +1324,13 @@ def create_invoice_from_sales_orders(
                 # salesorder_line_item_mapping_df[salesorder_line_item_mapping_df[''] == ]
                 logger.debug(f"Not mapped product is : {row.to_dict()}")
                 continue
-                
+            
+            quantity_invoiced = row.get('Quantity Invoiced')
+
+            if quantity_invoiced:
+                logger.debug(f"Already invoiced {row.to_dict()}")
+                continue
+
             order_number = str(row.get('PO Number'))
             item_name = row.get(sku_field_name, "").strip()
             item_id = row.get("item_id")
@@ -1363,7 +1373,7 @@ def create_invoice_from_sales_orders(
             processed_po_numbers.append(order_number)
 
             # check if len of line items is 10 then create invoice - 
-            if len(line_item)==10:
+            if len(line_items)==10:
                 # Create invoice payload
                 invoice_payload = {
                     "customer_id": customer_id,
@@ -1426,7 +1436,7 @@ def create_invoice_from_sales_orders(
         }])
     
     #  if there are reminaing line items to be mapped
-    if len(line_item) > 0:
+    if len(line_items) > 0:
         invoice_payload = {
             "customer_id": customer_id,
             "date": invoice_date.strftime("%Y-%m-%d"),

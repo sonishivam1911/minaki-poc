@@ -16,23 +16,8 @@ def fetch_all_salesorder_and_mapping_records_from_database(config):
         tuple: (new_orders_df, existing_mappings_df)
     """
     try:
-        # Step 1: Get existing mappings from database
-        #logger.debug("Fetching existing mappings from database")
-        try:
-            existing_mappings_df = crud.read_table('salesorder_line_item_mapping')
-            #logger.debug(f"Found {len(existing_mappings_df)} existing sales order mappings")
-        except Exception as db_error:
-            #logger.debug(f"Error reading existing mappings: {str(db_error)}")
-            existing_mappings_df = pd.DataFrame()
-        
-        # Get list of salesorder IDs that already have mappings
-        if not existing_mappings_df.empty and 'salesorder_id' in existing_mappings_df.columns:
-            existing_salesorder_ids = existing_mappings_df['salesorder_id'].unique().tolist()
-            logger.debug(f"Found {len(existing_salesorder_ids)} unique existing salesorder IDs")
-        else:
-            existing_salesorder_ids = []
-            logger.debug("No existing salesorder IDs found")
-        
+
+        existing_salesorder_ids = []
         # Step 2: Fetch all sales orders from Zakya
         #logger.debug("Fetching all sales orders from Zakya API")
         try:
@@ -54,16 +39,16 @@ def fetch_all_salesorder_and_mapping_records_from_database(config):
         # Step 3: Identify sales orders that need mapping
         if all_orders_df.empty:
             #logger.debug("No sales orders found in Zakya")
-            return pd.DataFrame(), existing_mappings_df
+            return pd.DataFrame(), pd.DataFrame()
             
         if not existing_salesorder_ids:
             #logger.debug("All sales orders need processing (no existing mappings)")
-            return all_orders_df, existing_mappings_df
+            return all_orders_df, pd.DataFrame()
             
         new_orders_df = all_orders_df[~all_orders_df['salesorder_id'].isin(existing_salesorder_ids)]
         logger.debug(f"Found {len(new_orders_df)} sales orders that need mapping")
         
-        return new_orders_df, existing_mappings_df
+        return new_orders_df, pd.DataFrame()
         
     except Exception as e:
         #logger.debug(f"Error in fetch_all_salesorder_and_mapping_records_from_database: {str(e)}")
