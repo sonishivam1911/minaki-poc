@@ -507,12 +507,12 @@ def fetch_salesorders_by_customer_service(config):
         # Add invoice information - check if each sales order item has been invoiced
         if not mapped_sales_order_with_product_df.empty:
             # Load necessary data from database tables
-            logger.debug("Loading data from database tables")
+            # logger.debug("Loading data from database tables")
             
             # Load invoice mappings
             try:
                 salesorder_invoice_mapping_df = crud.read_table('zakya_salesorder_invoice_mapping')
-                logger.debug(f"Loaded {len(salesorder_invoice_mapping_df)} sales order-invoice mappings")
+                # logger.debug(f"Loaded {len(salesorder_invoice_mapping_df)} sales order-invoice mappings")
             except Exception as e:
                 logger.error(f"Error loading sales order invoice mappings: {str(e)}")
                 salesorder_invoice_mapping_df = pd.DataFrame()
@@ -627,7 +627,7 @@ def fetch_salesorders_by_customer_service(config):
                 lambda x: mapped_salesorder_dict.get(x, '')
             )
             
-            logger.debug(f"Invoice status check completed, status counts: {pd.Series(results).value_counts().to_dict()}")
+            # logger.debug(f"Invoice status check completed, status counts: {pd.Series(results).value_counts().to_dict()}")
                 
         # Add inventory data if requested
         if config.get('include_inventory', False) and not mapped_sales_order_with_product_df.empty:
@@ -667,7 +667,7 @@ def fetch_salesorders_by_customer_service(config):
                 )
 
 
-        logger.debug(f"mapped_sales_order_with_product_df columns is : {mapped_sales_order_with_product_df.columns}")
+        # logger.debug(f"mapped_sales_order_with_product_df columns is : {mapped_sales_order_with_product_df.columns}")
         mapped_sales_order_with_product_df.to_csv('check.csv')
         # Group by salesorder, item name, and date, then calculate averages for metrics
         grouped_df = mapped_sales_order_with_product_df.groupby(
