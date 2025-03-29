@@ -75,8 +75,8 @@ def book_shipment_component(selected_so_id):
                     # Store selected courier ID in session state
                     st.session_state['selected_courier'] = selected_courier_id
                     
-                    #logger.debug(f"Contact person: {contact_person}")
-                    #logger.debug(f"Selected courier: {selected_courier_id}")
+                    ##logger.debug(f"Contact person: {contact_person}")
+                    ##logger.debug(f"Selected courier: {selected_courier_id}")
                     
                     with st.spinner('Creating shipments and packages...'):
                         # Call function that now returns multiple results

@@ -87,13 +87,13 @@ class CollectionResource(BaseShopifyResource):
                 response = requests.get(url, headers=headers)
                 data = response.json() 
 
-                # logger.debug(f"data is : {data}")
+                # #logger.debug(f"data is : {data}")
                 
-                # logger.debug(f"Found {len(data)} collects for smart collection {collection_id}")
+                # #logger.debug(f"Found {len(data)} collects for smart collection {collection_id}")
                 
                 # Extract product IDs from the matching collects
                 product_ids = [collect.get('id') for collect in data['products']]
-                # logger.debug(f"product ids are : {product_ids}")
+                # #logger.debug(f"product ids are : {product_ids}")
             else:
                 # For custom collections, use the standard approach
                 collects = collect_data.find(collection_id=collection_id, limit=250)

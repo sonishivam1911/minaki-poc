@@ -2,13 +2,12 @@ import re
 import streamlit as st
 import asyncio
 from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 from dotenv import load_dotenv
 from utils.postgres_connector import crud
 from config.logger import logger
 from utils.common_filtering_database_function import find_product
-from utils.zakya_api import fetch_records_from_zakya, post_record_to_zakya, fetch_object_for_each_id
+from utils.zakya_api import fetch_records_from_zakya, post_record_to_zakya
 from core.helper_zakya import extract_record_list
 from server.invoice.route import PerniaInvoiceProcessor
 # Load environment variables from .env file
@@ -18,7 +17,7 @@ def fetch_pernia_data_from_database(input):
     # Fetch all data from ppus_orders table
     pernia_data = crud.read_table('ppus_orders')
     pernia_data = pernia_data[pernia_data['Product Status'] == 'Received and QC Pass']
-    logger.debug(f"Pernia data fetched is : {pernia_data.columns}")
+    #logger.debug(f"Pernia data fetched is : {pernia_data.columns}")
     
     # Extract start and end dates from input
     start_date = input.get('start_date')
@@ -45,11 +44,11 @@ def fetch_pernia_data_from_database(input):
     # Filter data based on PO Date
     filtered_data = []
     for _,order in pernia_data.iterrows():
-        # logger.debug(f"order row is : {order}")
+        # #logger.debug(f"order row is : {order}")
         po_date = order.get("PO Date")
         if po_date:
             po_date_formatted = convert_date_format(po_date)
-            # logger.debug(f" po date format after formatting is : {po_date}")
+            # #logger.debug(f" po date format after formatting is : {po_date}")
             if po_date_formatted:
                 # Compare dates as strings (works with YYYY-MM-DD format)
                 if start_date_formatted <= po_date_formatted <= end_date_formatted:
@@ -64,15 +63,15 @@ def fetch_salesorders_by_customer(config):
         items_data_result = []
         for indx,row in config['pernia_orders'].iterrows():
             sku = row.get("Vendor Code"," ")
-            logger.debug(f"Sku is : {sku}")
+            #logger.debug(f"Sku is : {sku}")
             if len(sku) > 0:
                 item=find_product(sku)
-                logger.debug(f"Item is : {item}")
+                #logger.debug(f"Item is : {item}")
                 items_data_result.extend(item)
 
         mapped_pernia_products_df = pd.DataFrame.from_records(items_data_result)
         mapped_pernia_products_df = mapped_pernia_products_df[['item_id']]
-        # logger.debug(f"Mapped Pernia Products Dataframe Columns and Size : {mapped_pernia_products_df.columns} and {len(mapped_pernia_products_df)}")
+        # #logger.debug(f"Mapped Pernia Products Dataframe Columns and Size : {mapped_pernia_products_df.columns} and {len(mapped_pernia_products_df)}")
         # Fetch all sales orders
         sales_orders_data = fetch_records_from_zakya(
             config['base_url'],
@@ -85,23 +84,23 @@ def fetch_salesorders_by_customer(config):
         # Extract sales orders
         all_orders = extract_record_list(sales_orders_data, "salesorders")
         # Convert to DataFrame for easier filtering
-        sales_orders_df = pd.DataFrame(all_orders)
-        sales_orders_df = sales_orders_df[sales_orders_df['customer_id'] == config['customer_id']]
-        logger.debug(f"Sales Order after filtering : {sales_orders_df}")
-        sales_orders_df = pd.merge(
-            left=sales_orders_df, right=salesorder_item_mapping_df,
+        mapped_sales_order_with_product_df = pd.DataFrame(all_orders)
+        mapped_sales_order_with_product_df = mapped_sales_order_with_product_df[mapped_sales_order_with_product_df['customer_id'] == config['customer_id']]
+        #logger.debug(f"Sales Order after filtering : {mapped_sales_order_with_product_df}")
+        mapped_sales_order_with_product_df = pd.merge(
+            left=mapped_sales_order_with_product_df, right=salesorder_item_mapping_df,
             how='left' , on=['salesorder_id']
         )
 
         mapped_sales_order_with_product_df = pd.merge(
-            left=sales_orders_df, right=mapped_pernia_products_df,
+            left=mapped_sales_order_with_product_df, right=mapped_pernia_products_df,
             how='left', on=['item_id']
         )
         sales_order_with_product_mapped_columns = ['salesorder_id','line_item_id', 'date',
                                                    'delivery_date', 'salesorder_number_x',
                                                    'item_id','item_name']
 
-        # logger.debug(f"Mapped Sales Order & Product Mapping Dataframe Columns and Size : {mapped_sales_order_with_product_df.columns} and {len(mapped_sales_order_with_product_df)}")
+        # #logger.debug(f"Mapped Sales Order & Product Mapping Dataframe Columns and Size : {mapped_sales_order_with_product_df.columns} and {len(mapped_sales_order_with_product_df)}")
         
         # Log the columns for debugging
         return mapped_sales_order_with_product_df[sales_order_with_product_mapped_columns]
@@ -138,7 +137,7 @@ def process_sales_orders(order_data, customer_id, zakya_config, options=None):
             - errors (list): List of errors encountered
             - details (list): Detailed results for each sales order
     """
-    logger.debug(f"Starting process_sales_orders for customer_id: {customer_id}")
+    #logger.debug(f"Starting process_sales_orders for customer_id: {customer_id}")
     
     # Set default options
     default_options = {
@@ -169,7 +168,7 @@ def process_sales_orders(order_data, customer_id, zakya_config, options=None):
         mapping_product = crud.read_table("zakya_products")
         mapping_order = crud.read_table("zakya_sales_order")
 
-        logger.debug("Database call completed")
+        #logger.debug("Database call completed")
         
         # Group orders by reference number
         grouped_orders = order_data.groupby(opts['ref_field'])
@@ -185,12 +184,12 @@ def process_sales_orders(order_data, customer_id, zakya_config, options=None):
                 continue
             
             # Check if a sales order with this reference already exists
-            ref_number_str = str(ref_number)
+            ref_number_str = f"PO: {str(ref_number)}"
             existing_order = mapping_order[mapping_order["reference_number"] == ref_number_str]
             logger.debug(f"Existing Order : {existing_order}")
             
             if not existing_order.empty:
-                logger.debug(f"Sales Order with reference number {ref_number_str} already exists.")
+                #logger.debug(f"Sales Order with reference number {ref_number_str} already exists.")
                 results['details'].append({
                     'reference_number': ref_number_str,
                     'status': 'Skipped',
@@ -213,7 +212,7 @@ def process_sales_orders(order_data, customer_id, zakya_config, options=None):
                     logger.warning(f"Skipping item with invalid price: {price}")
                     continue
                 
-                logger.debug(f"sku is {sku} & partner_sku : {partner_sku} & price : {price}")
+                #logger.debug(f"sku is {sku} & partner_sku : {partner_sku} & price : {price}")
                 # Create line item
                 line_item = {
                     "description": f"PO: {ref_number_str} and {description} - {partner_sku}",
@@ -222,7 +221,7 @@ def process_sales_orders(order_data, customer_id, zakya_config, options=None):
                     "item_total": price * opts['quantity_value']
                 }
 
-                logger.debug(f"line_items are {line_item}")
+                #logger.debug(f"line_items are {line_item}")
                 
                 # Try to find item_id for this SKU
                 if sku:
@@ -231,7 +230,7 @@ def process_sales_orders(order_data, customer_id, zakya_config, options=None):
                         item_id = filtered_products["item_id"].iloc[0]
                         line_item["item_id"] = int(item_id)
 
-                        logger.debug(f"line_item after dding item id {line_item}")
+                        #logger.debug(f"line_item after dding item id {line_item}")
                 
                 line_items.append(line_item)
             
@@ -259,7 +258,6 @@ def process_sales_orders(order_data, customer_id, zakya_config, options=None):
             # Create sales order payload
             salesorder_payload = {
                 "customer_id": int(customer_id),
-                # "salesorder_number": f"MN/SO/{ref_number}",
                 "date": order_date,
                 "shipment_date": delivery_date,
                 "reference_number": ref_number_str,
@@ -272,7 +270,7 @@ def process_sales_orders(order_data, customer_id, zakya_config, options=None):
             
             # Create the sales order
             try:
-                logger.debug(f"Creating sales order for reference {ref_number_str}")
+                #logger.debug(f"Creating sales order for reference {ref_number_str}")
                 response = post_record_to_zakya(
                     zakya_config['base_url'],
                     zakya_config['access_token'],  
@@ -374,6 +372,7 @@ def fetch_salesorders_by_customer_service(config):
         DataFrame: Sales orders with enhanced data
     """
     try:
+        # logger.debug(f"Config is {config}")
         # Fetch all sales orders
         sales_orders_data = fetch_records_from_zakya(
             config['base_url'],
@@ -382,7 +381,7 @@ def fetch_salesorders_by_customer_service(config):
             '/salesorders'
         )
 
-        salesorder_item_mapping_df = crud.read_table('zakya_salesorder_line_item_mapping')
+        salesorder_item_mapping_df = crud.read_table('salesorder_line_item_mapping')
         
         # Extract sales orders
         all_orders = extract_record_list(sales_orders_data, "salesorders")
@@ -390,15 +389,87 @@ def fetch_salesorders_by_customer_service(config):
         # Convert to DataFrame for easier filtering
         sales_orders_df = pd.DataFrame(all_orders)
 
-        # logger.debug(f"Total sales orders fetched: {len(sales_orders_data)}")
-        
-        # Filter to only include the selected customer
-        sales_orders_df = sales_orders_df[sales_orders_df['customer_id'] == config['customer_id']]
-        logger.debug(f"Sales orders for customer {config['customer_id']}: {len(sales_orders_df)}")
-        
+        # #logger.debug(f"Total sales orders fetched: {len(sales_orders_data)}")
+
+        # Extract PO values from reference numbers early in the process
+        def extract_po_from_reference(ref_string):
+            """
+            Extract PO value from reference string with improved type handling.
+            
+            Args:
+                ref_string: The reference string to extract PO from
+                
+            Returns:
+                str or None: Extracted PO value or None if not found
+            """
+            # First ensure we have a string to work with
+            if ref_string is None:
+                return None
+                
+            # Convert to string if not already a string
+            if not isinstance(ref_string, str):
+                try:
+                    ref_string = str(ref_string).strip()
+                except:
+                    return None
+            else:
+                ref_string = ref_string.strip()
+            
+            # Return None for empty strings
+            if not ref_string:
+                return None
+            
+            # Check if the reference starts with "PO" using various formats
+            if ref_string.upper().startswith("PO"):
+                # Handle various formats: "PO:", "PO-", "PO ", etc.
+                # logger.debug(f"ref_string is : {ref_string.split(':')[-1].strip()}")
+                return ref_string.split(':')[-1].strip()
+            
+            return None
+
+        # Process reference numbers to extract PO values
+        if 'reference_number' in sales_orders_df.columns:
+            # logger.debug(f"Processing reference numbers. Sample types: {sales_orders_df['reference_number'].apply(type).value_counts()}")
+            sales_orders_df['extracted_po'] = sales_orders_df['reference_number'].apply(extract_po_from_reference)
+            # logger.debug(f"Extracted POs: {set(sales_orders_df['extracted_po'])}")
+
+        # If Pernia orders are provided, filter to only include those with matching PO numbers
+        if config.get('pernia_orders') is not None:
+            pernia_orders_df = config['pernia_orders']
+            
+            # Ensure 'PO Number' column exists in pernia_orders
+            if 'PO Number' in pernia_orders_df.columns:
+                # Check for type consistency in PO Number column
+                if not pernia_orders_df['PO Number'].empty:
+                    logger.debug(f"Pernia PO Number types: {pernia_orders_df['PO Number'].apply(type).value_counts()}")
+                    
+                    # Convert PO Number to string for consistency
+                    pernia_orders_df['PO Number'] = pernia_orders_df['PO Number'].apply(
+                        lambda x: str(x).strip() if pd.notna(x) else None
+                    )
+                
+                # Join sales orders with Pernia orders based on matching PO numbers
+                mapped_sales_order_with_product_df = pd.merge(
+                    left=sales_orders_df,
+                    right=pernia_orders_df,
+                    how='right',  # Only include matches
+                    left_on=['extracted_po'],
+                    right_on=['PO Number']
+                )
+
+                logger.debug(f"mapped_sales_order_with_product_df pos are : {mapped_sales_order_with_product_df['extracted_po']}")
+                # logger.debug(f"Orders after PO matching: {len(mapped_sales_order_with_product_df)}")
+            else:
+                logger.warning("'PO Number' column not found in pernia_orders, using all sales orders")
+                mapped_sales_order_with_product_df = sales_orders_df
+        else:
+            # No Pernia filtering - include all items
+            mapped_sales_order_with_product_df = sales_orders_df        
+
+        mapped_sales_order_with_product_df = mapped_sales_order_with_product_df[mapped_sales_order_with_product_df['customer_id'] == config['customer_id']]
         # Add date range filtering 
         if config.get('start_date') and config.get('end_date'):
-            logger.debug(f"Start dat filtering applied : {config.get('start_date')}")
+            #logger.debug(f"Start dat filtering applied : {config.get('start_date')}")
             start_date = config['start_date']
             end_date = config['end_date']
             
@@ -419,56 +490,29 @@ def fetch_salesorders_by_customer_service(config):
             date_45_days_before_str = date_45_days_before.strftime('%Y-%m-%d')
             
             # Filter sales orders to only include those between 45 days before start_date and start_date
-            sales_orders_df = sales_orders_df[
-                (sales_orders_df['date'] >= date_45_days_before_str) & 
-                (sales_orders_df['date'] <= end_date_str)
+            mapped_sales_order_with_product_df = mapped_sales_order_with_product_df[
+                (mapped_sales_order_with_product_df['date'] >= date_45_days_before_str) & 
+                (mapped_sales_order_with_product_df['date'] <= end_date_str)
             ]
 
 
         # Join with the salesorder_item_mapping to get item details
-        sales_orders_df = pd.merge(
-            left=sales_orders_df, 
+        mapped_sales_order_with_product_df = pd.merge(
+            left=mapped_sales_order_with_product_df, 
             right=salesorder_item_mapping_df,
             how='left', 
             on=['salesorder_id']
         )
-        
-        # If Pernia orders are provided, filter to only include those items
-        if config.get('pernia_orders') is not None:
-            # Original Pernia-specific filtering code
-            items_data_result = []
-            for indx, row in config['pernia_orders'].iterrows():
-                sku = row.get("Vendor Code", " ")
-                if len(sku) > 0:
-                    item = config['product_mapping'](sku)
-                    items_data_result.extend(item)
-            
-            mapped_pernia_products_df = pd.DataFrame.from_records(items_data_result)
-            if not mapped_pernia_products_df.empty and 'item_id' in mapped_pernia_products_df.columns:
-                mapped_pernia_products_df = mapped_pernia_products_df[['item_id']]
-                
-                # Filter to only include Pernia items
-                mapped_sales_order_with_product_df = pd.merge(
-                    left=sales_orders_df, 
-                    right=mapped_pernia_products_df,
-                    how='inner',  # Only include matches
-                    on=['item_id']
-                )
-            else:
-                mapped_sales_order_with_product_df = sales_orders_df
-        else:
-            # No Pernia filtering - include all items
-            mapped_sales_order_with_product_df = sales_orders_df
-        
+
         # Add invoice information - check if each sales order item has been invoiced
         if not mapped_sales_order_with_product_df.empty:
             # Load necessary data from database tables
-            logger.debug("Loading data from database tables")
+            #logger.debug("Loading data from database tables")
             
             # Load invoice mappings
             try:
                 salesorder_invoice_mapping_df = crud.read_table('zakya_salesorder_invoice_mapping')
-                logger.debug(f"Loaded {len(salesorder_invoice_mapping_df)} sales order-invoice mappings")
+                #logger.debug(f"Loaded {len(salesorder_invoice_mapping_df)} sales order-invoice mappings")
             except Exception as e:
                 logger.error(f"Error loading sales order invoice mappings: {str(e)}")
                 salesorder_invoice_mapping_df = pd.DataFrame()
@@ -476,7 +520,7 @@ def fetch_salesorders_by_customer_service(config):
             # Load sales order line item mappings
             try:
                 salesorder_line_item_mapping_df = crud.read_table('salesorder_line_item_mapping')
-                logger.debug(f"Loaded {len(salesorder_line_item_mapping_df)} sales order line items")
+                #logger.debug(f"Loaded {len(salesorder_line_item_mapping_df)} sales order line items")
             except Exception as e:
                 logger.error(f"Error loading sales order line item mappings: {str(e)}")
                 salesorder_line_item_mapping_df = pd.DataFrame()
@@ -484,7 +528,7 @@ def fetch_salesorders_by_customer_service(config):
             # Load invoice line item mappings
             try:
                 invoice_item_mapping_df = crud.read_table('zakya_invoice_line_item_mapping')
-                logger.debug(f"Loaded {len(invoice_item_mapping_df)} invoice line items")
+                #logger.debug(f"Loaded {len(invoice_item_mapping_df)} invoice line items")
             except Exception as e:
                 logger.error(f"Error loading invoice line item mappings: {str(e)}")
                 invoice_item_mapping_df = pd.DataFrame()
@@ -497,8 +541,8 @@ def fetch_salesorders_by_customer_service(config):
                 # Check if the reference starts with "PO: " or similar pattern
                 if ref_string.strip().startswith("PO"):
                     
-                    po_value = ref_string.strip(':')[-1].strip()  # Extract everything after "PO: "
-                    logger.debug(f"Reference string is : {ref_string} and po value extracted is : {po_value}")
+                    po_value = ref_string.split(':')[-1].strip()  # Extract everything after "PO: "
+                    #logger.debug(f"Reference string is : {ref_string} and po value extracted is : {po_value}")
                     return po_value
                 return None
             
@@ -566,7 +610,7 @@ def fetch_salesorders_by_customer_service(config):
                 
                 return "Not Invoiced"
             
-            logger.debug("Starting invoice status check")
+            #logger.debug("Starting invoice status check")
             
             # Apply the check to each row in the DataFrame
             results = []
@@ -583,7 +627,7 @@ def fetch_salesorders_by_customer_service(config):
                 lambda x: mapped_salesorder_dict.get(x, '')
             )
             
-            logger.debug(f"Invoice status check completed, status counts: {pd.Series(results).value_counts().to_dict()}")
+            #logger.debug(f"Invoice status check completed, status counts: {pd.Series(results).value_counts().to_dict()}")
                 
         # Add inventory data if requested
         if config.get('include_inventory', False) and not mapped_sales_order_with_product_df.empty:
@@ -622,23 +666,27 @@ def fetch_salesorders_by_customer_service(config):
                     add_inventory_data, axis=1
                 )
 
+
+        logger.debug(f"mapped_sales_order_with_product_df columns is : {mapped_sales_order_with_product_df.columns}")
+        mapped_sales_order_with_product_df.to_csv('check.csv')
         # Group by salesorder, item name, and date, then calculate averages for metrics
         grouped_df = mapped_sales_order_with_product_df.groupby(
-            ['salesorder_number_x', 'item_name', 'date', 'item_id', 'Invoice Status', 'Mapped Salesorder ID']
+            ['salesorder_number_x', 'name', 'date_x', 'item_id', 'Invoice Status', 'Mapped Salesorder ID', 'extracted_po','hsn_or_sac']
         ).agg({
             'quantity_y': 'sum',  # Sum quantities for same item in same order
             'rate': 'mean',      # Average rate
-            'amount': 'sum'      # Sum amounts
+            'total_x': 'sum'      # Sum amounts
         }).reset_index()
 
         # Rename columns for clarity
         renamed_df = grouped_df.rename(columns={
             'salesorder_number_x': 'Order Number',
-            'item_name': 'Item Name',
-            'date': 'Order Date',
+            'extracted_po' : 'Mapped POs',
+            'name': 'Item Name',
+            'date_x': 'Order Date',
             'quantity_y': 'Total Quantity',
             'rate': 'Average Rate',
-            'amount': 'Total Amount'
+            'total_x': 'Total Amount'
         })
 
         # Add inventory columns if they exist
@@ -656,6 +704,8 @@ def fetch_salesorders_by_customer_service(config):
                 how='left',
                 on=['item_id']
             )
+
+            logger.debug(f"Renamed df is  : {renamed_df.columns}")
 
         return renamed_df
         
@@ -680,12 +730,13 @@ def analyze_missing_salesorders(pernia_orders, product_mapping, sales_orders):
     missing_items = []
     present_items = []
     
-    logger.debug(f"Product mapping is : {product_mapping}")
+    #logger.debug(f"Product mapping is : {product_mapping}")
     
     # Get existing sales orders item_ids
     mapped_sales_order_items = set()
     # Dictionary to store the lowest sales order ID for each item_id
     lowest_so_mapping = {}
+    logger.debug(f"Sales order columns : {sales_orders.columns}")
     
     if sales_orders is not None and not sales_orders.empty and 'item_id' in sales_orders.columns:
         # Only consider non-invoiced items as valid
@@ -708,34 +759,38 @@ def analyze_missing_salesorders(pernia_orders, product_mapping, sales_orders):
     # Check each Pernia order item
     for idx, row in pernia_orders.iterrows():
         sku = row.get('Vendor Code', '').strip()
+        po_number = str(row.get('PO Number'))
 
-        if not sku:
+        if not po_number:
+            pernia_item = row.to_dict()
+            pernia_item['item_id'] = None
+            pernia_item['is_mapped'] = False
+            pernia_item['reason'] = "Not mapped in Zakya"
+            missing_items.append(pernia_item)
             continue
         
         # Check if this SKU is mapped to a product
+        
+        
         is_mapped = sku in product_mapping
-        item_id = product_mapping.get(sku, None)
+        item_id = product_mapping.get(sku,'')
 
-        # Check if this item has a valid sales order
-        has_sales_order = False
-        if is_mapped and item_id in mapped_sales_order_items:
-            has_sales_order = True
-
-        logger.debug(f"For sku : {sku} and is mapped be : {is_mapped} and item is : {item_id} and has_sales_order flag is : {has_sales_order}")             
+        #logger.debug(f"For sku : {sku} and is mapped be : {is_mapped} and item is : {item_id} and has_sales_order flag is : {has_sales_order}")             
         
         # Convert Pernia order row to dict for both cases
         pernia_item = row.to_dict()
-        pernia_item['is_mapped'] = is_mapped
         pernia_item['item_id'] = item_id
-        # pernia_item['Mapped Sales Order ID'] = 
-        
-        if has_sales_order:
+        pernia_item['is_mapped'] = False if pernia_item['item_id'] == '' or not pernia_item['item_id'] else True
+
+        sales_records_row = sales_orders[sales_orders['Mapped POs'] == po_number].to_dict('records')
+        logger.debug(f"Sales record row is : {sales_records_row}")
+        if len(sales_records_row) > 0:
+            pernia_item['Mapped SalesOrder ID'] = sales_records_row[0]['Mapped Salesorder ID']
+            item_id = sales_records_row[0]['item_id']
+            pernia_item['item_id'] = item_id
+            pernia_item['is_mapped'] = False if pernia_item['item_id'] == '' or not pernia_item['item_id'] else True
             # It's present - get the associated lowest sales order info
-            so_info = lowest_so_mapping.get(item_id, {})
-            
-            # Merge Pernia item data with sales order data
-            present_item = {**pernia_item, **so_info}
-            present_items.append(present_item)
+            present_items.append(pernia_item)
         else:
             # It's missing - add reason
             if not is_mapped:
@@ -760,8 +815,8 @@ def analyze_missing_salesorders(pernia_orders, product_mapping, sales_orders):
     missing_df = pd.DataFrame(missing_items) if missing_items else pd.DataFrame()
     present_df = pd.DataFrame(present_items) if present_items else pd.DataFrame()
     
-    logger.debug(f"Missing Df is as follows : {missing_df}")
-    logger.debug(f"Present Df is as follows : {present_df}")
+    #logger.debug(f"Missing Df is as follows : {missing_df}")
+    #logger.debug(f"Present Df is as follows : {present_df}")
     
     # Add inventory data for mapped items in missing_df
     if not missing_df.empty and 'item_id' in missing_df.columns:
@@ -771,8 +826,8 @@ def analyze_missing_salesorders(pernia_orders, product_mapping, sales_orders):
     if not present_df.empty and 'item_id' in present_df.columns:
         present_df = add_inventory_data(present_df)
     
-    logger.debug(f"Finalized Missing Dataframe is : {missing_df}")
-    logger.debug(f"Finalized Present Dataframe is : {present_df}")
+    #logger.debug(f"Finalized Missing Dataframe is : {missing_df}")
+    #logger.debug(f"Finalized Present Dataframe is : {present_df}")
     
     return missing_df, present_df
 
@@ -832,7 +887,7 @@ def create_missing_salesorders(missing_orders, zakya_connection, customer_id):
         'order_source': 'Pernia'
     }
 
-    logger.debug(f"Pernia options : {pernia_options}")
+    #logger.debug(f"Pernia options : {pernia_options}")
     
     return process_sales_orders(missing_orders, customer_id, zakya_connection, pernia_options)    
 
@@ -874,7 +929,7 @@ def analyze_products(pernia_orders_df):
         
         # Find existing products
         product_config = asyncio.run(processor.find_existing_products())
-        # logger.debug(f"Product config is : {product_config}")
+        # #logger.debug(f"Product config is : {product_config}")
         
         # Format results
         mapped_products = []
@@ -883,13 +938,13 @@ def analyze_products(pernia_orders_df):
         
         # Process mapped products
         for sku in product_config.get('existing_products', []):
-            # logger.debug(f"SKU is : {sku}")
+            # #logger.debug(f"SKU is : {sku}")
             item_id = product_config['existing_sku_item_id_mapping'].get(sku, None)
-            # logger.debug(f"item_id is : {item_id}")
+            # #logger.debug(f"item_id is : {item_id}")
             if item_id:
                 # Get product details from mapping
                 product_data = product_config['existing_products_data_dict'].get(item_id, {})
-                # logger.debug(f"product_data is : {product_data}")
+                # #logger.debug(f"product_data is : {product_data}")
                 # Find matching row in Pernia orders
                 matching_rows = pernia_orders_df[pernia_orders_df['Vendor Code'] == sku]
                 po_data = {}
@@ -903,7 +958,7 @@ def analyze_products(pernia_orders_df):
                         'po_date': row.get('PO Date', ''),
                         'po_value': row.get('PO Value', 0)
                     }
-                    # logger.debug(f"po_data : {po_data}")
+                    # #logger.debug(f"po_data : {po_data}")
                 
                 # Combine product and PO data
                 mapped_products.append({
@@ -918,7 +973,7 @@ def analyze_products(pernia_orders_df):
                 # Add to mapping
                 product_mapping[sku] = item_id
         
-        logger.debug(f"Mapped Products : {product_mapping}")
+        #logger.debug(f"Mapped Products : {product_mapping}")
         # Process unmapped products
         for sku in product_config.get('missing_products', []):
             # Find matching row in Pernia orders
@@ -966,6 +1021,7 @@ def analyze_products(pernia_orders_df):
 
 
 def fetch_inventory_data(zakya_connection, product_mapping):
+
     """
     Fetch inventory data for mapped products.
     
@@ -1006,3 +1062,524 @@ def fetch_inventory_data(zakya_connection, product_mapping):
     except Exception as e:
         st.error(f"Error fetching inventory data: {str(e)}")
         return {}    
+    
+
+def create_invoice_from_sales_orders(
+    sales_orders_df,
+    missing_salesorder_df,
+    missng_salesorder_reference_number_mapping,
+    zakya_connection,
+    customer_name,
+    invoice_date=None,
+    sku_field_name="Item Name"
+):
+    """
+    Create a single invoice based on the sales orders data from the CSV
+    
+    Parameters:
+    - sales_orders_df: DataFrame containing sales order data
+    - zakya_connection: Dictionary with base_url, access_token, organization_id
+    - customer_name: Name of the customer
+    - invoice_date: Date for the invoice (defaults to today)
+    - sku_field_name: The column name in the CSV that contains the SKU
+    
+    Returns:
+    - DataFrame with invoice results
+    """
+    # Set default invoice date if not provided
+    if not invoice_date:
+        invoice_date = datetime.now()
+        
+    # Find customer by name
+    try:
+        # Fetch all contacts
+        contacts_data = fetch_records_from_zakya(
+            zakya_connection['base_url'],
+            zakya_connection['access_token'],
+            zakya_connection['organization_id'],
+            '/contacts'
+        )
+        
+        # Extract contacts
+        all_contacts = []
+        for record in contacts_data:
+            all_contacts.extend(record['contacts'])
+            
+        # Find the customer
+        customer_data = [c for c in all_contacts if c.get('contact_name') == customer_name]
+        
+        if not customer_data:
+            logger.error(f"Customer not found: {customer_name}")
+            return pd.DataFrame([{
+                "customer_name": customer_name,
+                "status": "Failed",
+                "error": "Customer not found"
+            }])
+            
+        customer_id = customer_data[0].get("contact_id")
+        gst = customer_data[0].get("gst_no", "")
+        
+    except Exception as e:
+        logger.error(f"Error finding customer: {e}")
+        return pd.DataFrame([{
+            "customer_name": customer_name,
+            "status": "Failed",
+            "error": f"Error finding customer: {str(e)}"
+        }])
+    
+    # Create line items for invoice
+    line_items = []
+    processed_po_numbers = []
+    inventory_adjustments_needed = []
+    create_invoice_result = []
+    adjustment_result = []
+    not_mapped_line_items = []
+
+#  check for all missing orders and fetch the mapping for reference orders 
+    
+    for _,row in missing_salesorder_df.iterrows():
+
+        is_mapped = row.get("is_mapped",False)
+        if not is_mapped:
+            # Create line item
+            line_item = {
+                "description": f"Missing sku from our database, sku is : {row.get('Vendor Code')} and pernia code is : {row.get('SKU Code')}",
+                "rate": row.get('PO Value'),
+                "quantity": 1,
+                "hsn_or_sac": "711790"  # Default HSN code
+            }      
+            not_mapped_line_items.append(line_item)
+            processed_po_numbers.append(str(row.get('PO Number')))
+
+            if len(not_mapped_line_items) == 10:
+                # Create invoice payload
+                invoice_payload = {
+                    "customer_id": customer_id,
+                    "date": invoice_date.strftime("%Y-%m-%d"),
+                    "payment_terms": 30,
+                    "exchange_rate": 1.0,
+                    "line_items": not_mapped_line_items,
+                    "gst_treatment": "business_gst",
+                    "is_inclusive_tax": True,
+                    "template_id": 1923531000000916001
+                }
+                # Add GST number if available
+                if gst:
+                    invoice_payload["gst_no"] = gst       
+
+                result_create_invooice = create_invoice(
+                    {
+                        'base_url' : zakya_connection['base_url'],
+                        'access_token' : zakya_connection['access_token'],
+                        'organization_id' : zakya_connection['organization_id'],
+                        'invoice_payload' : invoice_payload,
+                        'line_items' : not_mapped_line_items,
+                        'customer_name' : customer_name,
+                        'processed_po_numbers' : processed_po_numbers,
+                        'adjustment_results' : [],
+                    }                    
+                )
+
+                create_invoice_result.append(result_create_invooice)     
+                not_mapped_line_items = []
+                processed_po_numbers = []                                    
+
+        else:
+
+            item_name = row.get(sku_field_name, "").strip()
+            item_id = row.get("item_id")
+            reference_number = str(row.get('PO Number'))
+            mapped_so_id = missng_salesorder_reference_number_mapping[reference_number]
+            quantity = 1
+            rate = float(row.get("PO Value", 0))
+            stock_on_hand = float(row.get("Stock on Hand", 0))
+            
+            # Skip if no rate or invalid data
+            if rate <= 0:
+                continue
+                
+            # Create line item
+            line_item = {
+                "name": item_name,
+                "description": f"PO Number : {reference_number}",
+                "rate": rate,
+                "quantity": quantity,
+                "hsn_or_sac": "711790"  # Default HSN code
+            }
+            
+            # Add item_id if it exists
+            if item_id:
+                line_item["item_id"] = item_id
+                
+                # Check if inventory adjustment is needed
+                if item_id and stock_on_hand < quantity:
+                    quantity_adjusted = quantity - stock_on_hand
+                    inventory_adjustments_needed.append({
+                        "item_id": item_id,
+                        "quantity_adjusted": quantity_adjusted,
+                        "item_name": item_name
+                    })
+                
+            # Add salesorder_item_id if it exists
+            if mapped_so_id:
+                line_item["salesorder_item_id"] = mapped_so_id
+                
+            line_items.append(line_item)
+            processed_po_numbers.append(reference_number)
+
+            # check if len of line items is 10 then create invoice - 
+            if len(line_item)==10:
+                # Create invoice payload
+                invoice_payload = {
+                    "customer_id": customer_id,
+                    "date": invoice_date.strftime("%Y-%m-%d"),
+                    "payment_terms": 30,
+                    "exchange_rate": 1.0,
+                    "line_items": line_items,
+                    "gst_treatment": "business_gst",
+                    "is_inclusive_tax": True,
+                    "template_id": 1923531000000916001
+                }
+                # Add GST number if available
+                if gst:
+                    invoice_payload["gst_no"] = gst
+
+                # check for inventory and then create invoice 
+                updated_inventory_result = update_inventory(
+                    {
+                        'base_url' : zakya_connection['base_url'],
+                        'access_token' : zakya_connection['access_token'],
+                        'organization_id' : zakya_connection['organization_id'],
+                        'inventory_adjustments_needed' : inventory_adjustments_needed
+
+                    }
+                )
+
+                adjustment_result.extend(updated_inventory_result)
+
+                # create invoice
+                result_create_invooice = create_invoice(
+                    {
+                        'base_url' : zakya_connection['base_url'],
+                        'access_token' : zakya_connection['access_token'],
+                        'organization_id' : zakya_connection['organization_id'],
+                        'invoice_payload' : invoice_payload,
+                        'line_items' : line_items,
+                        'customer_name' : customer_name,
+                        'processed_po_numbers' : processed_po_numbers,
+                        'adjustment_results' : updated_inventory_result,
+                    }                    
+                )
+
+                create_invoice_result.append(result_create_invooice)
+                
+                # reset line items and inventory_adjustments_needed
+                line_items = []
+                inventory_adjustments_needed = []
+                processed_po_numbers = []        
+
+
+    # case when missing line items arrys is not zero and more invoices need to be made 
+    if len(not_mapped_line_items) > 0:
+        invoice_payload = {
+            "customer_id": customer_id,
+            "date": invoice_date.strftime("%Y-%m-%d"),
+            "payment_terms": 30,
+            "exchange_rate": 1.0,
+            "line_items": not_mapped_line_items,
+            "gst_treatment": "business_gst",
+            "is_inclusive_tax": True,
+            "template_id": 1923531000000916001
+        }
+        # Add GST number if available
+        if gst:
+            invoice_payload["gst_no"] = gst       
+
+        result_create_invooice = create_invoice(
+            {
+                'base_url' : zakya_connection['base_url'],
+                'access_token' : zakya_connection['access_token'],
+                'organization_id' : zakya_connection['organization_id'],
+                'invoice_payload' : invoice_payload,
+                'line_items' : not_mapped_line_items,
+                'customer_name' : customer_name,
+                'processed_po_numbers' : processed_po_numbers,
+                'adjustment_results' : [],
+            }                    
+        )
+
+        create_invoice_result.append(result_create_invooice)         
+
+
+    # Create line items from sales orders
+    for _, row in sales_orders_df.iterrows():
+        try:
+            is_mapped = row.get("is_mapped",False)
+            if not is_mapped:
+                # fetch from salesorder item id mapping -- for mapped sales order get item id and use that 
+                # salesorder_line_item_mapping_df[salesorder_line_item_mapping_df[''] == ]
+                logger.debug(f"Not mapped product is : {row.to_dict()}")
+                continue
+                
+            order_number = str(row.get('PO Number'))
+            item_name = row.get(sku_field_name, "").strip()
+            item_id = row.get("item_id")
+            mapped_so_id = row.get("Mapped Salesorder ID")
+            quantity = 1
+            rate = float(row.get("PO Value", 0))
+            stock_on_hand = float(row.get("Stock on Hand", 0))
+            
+            # Skip if no rate or invalid data
+            if rate <= 0:
+                continue
+                
+            # Create line item
+            line_item = {
+                "name": item_name,
+                "description": f"Order: {order_number}",
+                "rate": rate,
+                "quantity": quantity,
+                "hsn_or_sac": "711790"  # Default HSN code
+            }
+            
+            # Add item_id if it exists
+            if item_id:
+                line_item["item_id"] = item_id
+                
+                # Check if inventory adjustment is needed
+                if item_id and stock_on_hand < quantity:
+                    quantity_adjusted = quantity - stock_on_hand
+                    inventory_adjustments_needed.append({
+                        "item_id": item_id,
+                        "quantity_adjusted": quantity_adjusted,
+                        "item_name": item_name
+                    })
+                
+            # Add salesorder_item_id if it exists
+            if mapped_so_id:
+                line_item["salesorder_item_id"] = mapped_so_id
+                
+            line_items.append(line_item)
+            processed_po_numbers.append(order_number)
+
+            # check if len of line items is 10 then create invoice - 
+            if len(line_item)==10:
+                # Create invoice payload
+                invoice_payload = {
+                    "customer_id": customer_id,
+                    "date": invoice_date.strftime("%Y-%m-%d"),
+                    "payment_terms": 30,
+                    "exchange_rate": 1.0,
+                    "line_items": line_items,
+                    "gst_treatment": "business_gst",
+                    "is_inclusive_tax": True,
+                    "template_id": 1923531000000916001
+                }
+                # Add GST number if available
+                if gst:
+                    invoice_payload["gst_no"] = gst
+
+                # check for inventory and then create invoice 
+                updated_inventory_result = update_inventory(
+                    {
+                        'base_url' : zakya_connection['base_url'],
+                        'access_token' : zakya_connection['access_token'],
+                        'organization_id' : zakya_connection['organization_id'],
+                        'inventory_adjustments_needed' : inventory_adjustments_needed
+
+                    }
+                )
+
+                adjustment_result.extend(updated_inventory_result)
+
+                # create invoice
+                result_create_invooice = create_invoice(
+                    {
+                        'base_url' : zakya_connection['base_url'],
+                        'access_token' : zakya_connection['access_token'],
+                        'organization_id' : zakya_connection['organization_id'],
+                        'invoice_payload' : invoice_payload,
+                        'line_items' : line_items,
+                        'customer_name' : customer_name,
+                        'processed_po_numbers' : processed_po_numbers,
+                        'adjustment_results' : updated_inventory_result,
+                    }                    
+                )
+
+                create_invoice_result.append(result_create_invooice)
+                
+                # reset line items and inventory_adjustments_needed
+                line_items = []
+                inventory_adjustments_needed = []
+                processed_po_numbers = []
+
+        except Exception as e:
+            logger.error(f"Error processing row: {e}")
+            continue
+    
+    if not line_items:
+        logger.warning(f"No valid line items for customer: {customer_name}")
+        return pd.DataFrame([{
+            "customer_name": customer_name,
+            "status": "Failed",
+            "error": "No valid line items"
+        }])
+    
+    #  if there are reminaing line items to be mapped
+    if len(line_item) > 0:
+        invoice_payload = {
+            "customer_id": customer_id,
+            "date": invoice_date.strftime("%Y-%m-%d"),
+            "payment_terms": 30,
+            "exchange_rate": 1.0,
+            "line_items": line_items,
+            "gst_treatment": "business_gst",
+            "is_inclusive_tax": True,
+            "template_id": 1923531000000916001
+        }
+        # Add GST number if available
+        if gst:
+            invoice_payload["gst_no"] = gst
+
+        # check for inventory and then create invoice 
+        updated_inventory_result = update_inventory(
+            {
+                'base_url' : zakya_connection['base_url'],
+                'access_token' : zakya_connection['access_token'],
+                'organization_id' : zakya_connection['organization_id'],
+                'inventory_adjustments_needed' : inventory_adjustments_needed
+
+            }
+        )
+        adjustment_result.extend(updated_inventory_result)
+
+        # create invoice
+        result_create_invooice = create_invoice(
+            {
+                'base_url' : zakya_connection['base_url'],
+                'access_token' : zakya_connection['access_token'],
+                'organization_id' : zakya_connection['organization_id'],
+                'invoice_payload' : invoice_payload,
+                'line_items' : line_items,
+                'customer_name' : customer_name,
+                'processed_po_numbers' : processed_po_numbers,
+                'adjustment_results' : updated_inventory_result,
+            }                    
+        )
+
+        create_invoice_result.append(result_create_invooice)
+
+    return {
+        'invoice_df' : pd.DataFrame.from_records(create_invoice_result), 
+        'adjustment_df' : pd.DataFrame.from_records(adjustment_result)
+    }
+
+
+def create_invoice(config):
+
+   # Create the invoice
+    try:
+        logger.info(f"Creating invoice for {config['customer_name']} with {len(config['line_items'])} items")
+        invoice_response = post_record_to_zakya(
+            config['base_url'],
+            config['access_token'],
+            config['organization_id'],
+            'invoices',
+            config['invoice_payload']
+        )
+        
+        if isinstance(invoice_response, dict) and "invoice" in invoice_response:
+            invoice_data = invoice_response["invoice"]
+            invoice_id = invoice_data.get("invoice_id")
+            invoice_number = invoice_data.get("invoice_number")
+            total_amount = sum(item["rate"] * item["quantity"] for item in config['line_items'])
+            
+            # Create result with both invoice and adjustment info
+            result = {
+                "invoice_id": invoice_id,
+                "invoice_number": invoice_number,
+                "customer_name": config['customer_name'],
+                "date": config['invoice_payload']["date"],
+                "due_date": invoice_data.get("due_date"),
+                "amount": total_amount,
+                "po_count": len(config['processed_po_numbers']),
+                "status": "Success",
+                "inventory_adjustments": len(config['adjustment_results']),
+                "inventory_adjustments_success": sum(1 for adj in config['adjustment_results'] if adj["status"] == "Success")
+            }
+            
+            # Return combined results
+            return result
+        else:
+            logger.error(f"Invalid invoice response for {config['customer_name']}: {invoice_response}")
+            return {
+                "customer_name": config['customer_name'],
+                "date": config['invoice_payload']["date"],
+                "status": "Failed",
+                "error": str(invoice_response),
+                "inventory_adjustments": len(config['adjustment_results']),
+                "inventory_adjustments_success": sum(1 for adj in config['adjustment_results'] if adj["status"] == "Success")
+            }
+    except Exception as e:
+        logger.error(f"Error creating invoice for {config['customer_name']}: {e}")
+        return {
+            "customer_name": config['customer_name'],
+            "date": config['invoice_payload'],
+            "status": "Failed",
+            "error": str(e),
+            "inventory_adjustments": len(config['adjustment_results']),
+            "inventory_adjustments_success": sum(1 for adj in config['adjustment_results'] if adj["status"] == "Success")
+        }    
+    
+
+
+def update_inventory(config):
+# Process inventory adjustments if needed
+    adjustment_results = []
+    for adjustment in config['inventory_adjustments_needed']:
+        try:
+            inv_payload = {
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "reason": "Stock Retally",
+                "adjustment_type": "quantity",
+                "line_items": [
+                    {
+                        "item_id": adjustment["item_id"],
+                        "quantity_adjusted": adjustment["quantity_adjusted"]
+                    }
+                ]
+            }
+            
+            inventory_correction_response = post_record_to_zakya(
+                config['base_url'],
+                config['access_token'],
+                config['organization_id'],
+                'inventoryadjustments',
+                inv_payload   
+            )
+            
+            if "inventory_adjustment" in inventory_correction_response:
+                adjustment_id = inventory_correction_response["inventory_adjustment"].get("inventory_adjustment_id")
+                adjustment_results.append({
+                    "item_name": adjustment["item_name"],
+                    "adjustment_id": adjustment_id,
+                    "quantity_adjusted": adjustment["quantity_adjusted"],
+                    "status": "Success"
+                })
+            else:
+                adjustment_results.append({
+                    "item_name": adjustment["item_name"],
+                    "status": "Failed",
+                    "error": str(inventory_correction_response)
+                })
+
+            return adjustment_results
+                
+        except Exception as e:
+            logger.error(f"Error creating inventory adjustment for {adjustment['item_name']}: {e}")
+            adjustment_results.append({
+                "item_name": adjustment["item_name"],
+                "status": "Failed",
+                "error": str(e)
+            })    
+            return adjustment_results

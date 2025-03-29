@@ -72,7 +72,7 @@ class TajInvoiceProcessor(InvoiceProcessor):
                     line_item["item_id"] = invoice_object['existing_sku_item_id_mapping'][sku]
 
                     if line_item["item_id"] in salesorder_product_mapping_dict:
-                        logger.debug(f"Salesorder item id is : {salesorder_product_mapping_dict[line_item["item_id"]]}")
+                        #logger.debug(f"Salesorder item id is : {salesorder_product_mapping_dict[line_item["item_id"]]}")
                         line_item["salesorder_item_id"] = salesorder_product_mapping_dict[line_item["item_id"]]
                 
                 # Add line item to the invoice for this branch
@@ -108,7 +108,7 @@ class TajInvoiceProcessor(InvoiceProcessor):
                 invoice_payload["gst_no"] = customer_data["gst"]
             
             try:
-                logger.debug(f"Creating invoice for {branch_name} with {len(invoice_payload['line_items'])} items")
+                #logger.debug(f"Creating invoice for {branch_name} with {len(invoice_payload['line_items'])} items")
                 invoice_response = post_record_to_zakya(
                     self.zakya_connection_object['base_url'],
                     self.zakya_connection_object['access_token'],
