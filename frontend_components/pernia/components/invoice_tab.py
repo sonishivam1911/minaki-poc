@@ -87,9 +87,10 @@ def generate_invoices(df, invoice_date,present_orders,missing_orders,missng_sale
             st.dataframe(result['invoice_df'],use_container_width=True)
 
 
-        with st.container():
-            st.subheader("Adjustment Items Summary")
-            st.dataframe(result['adjustment_df'],use_container_width=True)
+        if not result['adjustment_df'].empty:
+            with st.container():
+                st.subheader("Adjustment Items Summary")
+                st.dataframe(result['adjustment_df'],use_container_width=True)
         
             # Store the invoice results
 

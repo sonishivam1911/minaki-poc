@@ -643,6 +643,7 @@ def create_whereclause_fetch_data(pydantic_model, filter_dict, query):
 
 
 def fetch_customer_name_list(is_aza=False):
+    logger.debug(f"is Aza filter is {is_aza}")
     customer_df = load_customer_data(is_aza)
     return customer_df["contact_name"].unique()
 

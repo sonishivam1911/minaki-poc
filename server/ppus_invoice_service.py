@@ -507,12 +507,12 @@ def fetch_salesorders_by_customer_service(config):
         # Add invoice information - check if each sales order item has been invoiced
         if not mapped_sales_order_with_product_df.empty:
             # Load necessary data from database tables
-            #logger.debug("Loading data from database tables")
+            # logger.debug("Loading data from database tables")
             
             # Load invoice mappings
             try:
                 salesorder_invoice_mapping_df = crud.read_table('zakya_salesorder_invoice_mapping')
-                #logger.debug(f"Loaded {len(salesorder_invoice_mapping_df)} sales order-invoice mappings")
+                # logger.debug(f"Loaded {len(salesorder_invoice_mapping_df)} sales order-invoice mappings")
             except Exception as e:
                 logger.error(f"Error loading sales order invoice mappings: {str(e)}")
                 salesorder_invoice_mapping_df = pd.DataFrame()
@@ -542,7 +542,7 @@ def fetch_salesorders_by_customer_service(config):
                 if ref_string.strip().startswith("PO"):
                     
                     po_value = ref_string.split(':')[-1].strip()  # Extract everything after "PO: "
-                    #logger.debug(f"Reference string is : {ref_string} and po value extracted is : {po_value}")
+                    logger.debug(f"Reference string is : {ref_string} and po value extracted is : {po_value}")
                     return po_value
                 return None
             
@@ -601,7 +601,7 @@ def fetch_salesorders_by_customer_service(config):
                                     matching_items = matching_items.sort_values('line_item_id').head(1)
                                 
                                 mapped_salesorder_dict[row_id] = sales_order_id
-                                return f"Invoiced ({invoice_number})"
+                                return f"Invoiced (INV : {invoice_number})"
                 
                 # No invoice found through either method
                 if 'item_id' in row and not pd.isna(row['item_id']) and 'salesorder_id' in row and not pd.isna(row['salesorder_id']):
@@ -627,7 +627,7 @@ def fetch_salesorders_by_customer_service(config):
                 lambda x: mapped_salesorder_dict.get(x, '')
             )
             
-            #logger.debug(f"Invoice status check completed, status counts: {pd.Series(results).value_counts().to_dict()}")
+            # logger.debug(f"Invoice status check completed, status counts: {pd.Series(results).value_counts().to_dict()}")
                 
         # Add inventory data if requested
         if config.get('include_inventory', False) and not mapped_sales_order_with_product_df.empty:
@@ -667,7 +667,7 @@ def fetch_salesorders_by_customer_service(config):
                 )
 
 
-        logger.debug(f"mapped_sales_order_with_product_df columns is : {mapped_sales_order_with_product_df.columns}")
+        # logger.debug(f"mapped_sales_order_with_product_df columns is : {mapped_sales_order_with_product_df.columns}")
         mapped_sales_order_with_product_df.to_csv('check.csv')
         # Group by salesorder, item name, and date, then calculate averages for metrics
         grouped_df = mapped_sales_order_with_product_df.groupby(
@@ -792,7 +792,7 @@ def analyze_missing_salesorders(pernia_orders, product_mapping, sales_orders):
             item_id = sales_records_row[0]['item_id']
             pernia_item['item_id'] = item_id
             pernia_item['is_mapped'] = False if pernia_item['item_id'] == '' or not pernia_item['item_id'] else True
-            pernia_item['Quantity Invoiced'] = False if sales_records_row[0]['Quantity Invoiced'] == 0 else True
+            pernia_item['Quantity Invoiced'] = True if 'Invoiced' in sales_records_row[0]['Invoice Status'] else False
             # It's present - get the associated lowest sales order info
             present_items.append(pernia_item)
         else:
@@ -1429,12 +1429,14 @@ def create_invoice_from_sales_orders(
     
     if not line_items:
         logger.warning(f"No valid line items for customer: {customer_name}")
-        return pd.DataFrame([{
+        return {
+        'invoice_df' : pd.DataFrame([{
             "customer_name": customer_name,
-            "status": "Failed",
-            "error": "No valid line items"
-        }])
-    
+            "status": "Already Invoiced",
+        }]), 
+        'adjustment_df' : pd.DataFrame()
+    }
+        
     #  if there are reminaing line items to be mapped
     if len(line_items) > 0:
         invoice_payload = {
