@@ -48,9 +48,12 @@ def main():
     """Main application logic."""
 
     zakya_auth_df = crud.read_table("zakya_auth")
-    zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
-    
-    
+    if isinstance(zakya_auth_df,pd.DataFrame):
+        zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
+    else:
+        st.error(f"Issue with database connection : {zakya_auth_df}")
+        zakya_auth_df = pd.DataFrame()
+        
     if not zakya_auth_df.empty:
         try:
             set_access_token_via_refresh_token()
