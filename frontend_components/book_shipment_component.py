@@ -116,21 +116,21 @@ def shipment_form_component():
         st.markdown("**Package Dimensions**")
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            length = st.number_input("Length (cm)", min_value=1, value=100)
+            length = st.number_input("Length (cm)", min_value=1, max_value=100, value=25)
         with col2:
-            breadth = st.number_input("Breadth (cm)", min_value=1, value=100)
+            breadth = st.number_input("Breadth (cm)", min_value=1, max_value=100, value=15)
         with col3:
-            height = st.number_input("Height (cm)", min_value=1, value=100)
+            height = st.number_input("Height (cm)", min_value=1, max_value=100, value=10)
         with col4:
-            weight = st.number_input("Weight (kg)", min_value=0.1, value=15)
+            weight = st.number_input("Weight (kg)", min_value=0.100, max_value=15.000, value=1.000)
         
         # Contact person details
         st.markdown("**Contact Person Details**")
         col1, col2 = st.columns(2)
         with col1:
             contact_name = st.text_input("Contact Name", value="")
-            contact_phone = st.text_input("Contact Phone", value="")
         with col2:
+            contact_phone = st.text_input("Contact Phone", value="")
             contact_email = 'noreply@shiprocket.in'
         
         # Submit button for the form
@@ -146,14 +146,9 @@ def display_and_select_couriers(courier_df):
 
     # Display courier options in a user-friendly format    
     # Create a selection dataframe with relevant columns
-    display_df = courier_df[['id','courier_name', 'freight_charge', 
-                                'base_courier_id','pickup_availability',  'air_max_weight',
-                                'charge_weight','city', 'cod', 'rate', 
-                                'etd', 'rating', 
-                                'cod_charges', 'cod_multiplier', 
-                                'cost','courier_company_id',
-                                'pickup_performance', 'pickup_priority', 'surface_max_weight', 
-                                'tracking_performance','volumetric_max_weight', 'weight_cases',
+    display_df = courier_df[['courier_company_id','courier_name', 'freight_charge', 
+                                'charge_weight','city', 'rate', 
+                                'etd'
                             ]]
 
     # Show the dataframe
@@ -170,7 +165,7 @@ def display_and_select_couriers(courier_df):
         courier_name = courier_row['courier_name'].iloc[0]
         rate = courier_row['rate'].iloc[0]
         etd = courier_row['etd'].iloc[0]
-        return f"{courier_name} - ₹{rate} ({etd} days)"
+        return f"{courier_name} - ₹{rate} (ETD -> {etd})"
 
     selected_courier = st.selectbox(
         "Select Courier Service",
