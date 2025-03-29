@@ -61,7 +61,7 @@ def apply_advanced_filtering(df):
     # Apply filters
     filtered_df = df.copy()
    
-    logger.debug(f"type for created_at is :{type(filtered_df['created_at'])}")
+    #logger.debug(f"type for created_at is :{type(filtered_df['created_at'])}")
 
     pd_start_date = pd.Timestamp(start_date)
     pd_end_date = pd.Timestamp(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)     

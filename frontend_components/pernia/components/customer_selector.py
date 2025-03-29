@@ -75,7 +75,7 @@ def update_customer_selection(selected_customer):
     
     if customer_data and len(customer_data) > 0:
         customer_data = customer_data[0]
-        logger.debug(f"Customer data after filtering is {customer_data}")
+        #logger.debug(f"Customer data after filtering is {customer_data}")
         customer_id = customer_data.get('contact_id')
         st.session_state['customer_id'] = customer_id
         

@@ -43,7 +43,7 @@ class InvoiceProcessor(ABC):
             }, queries.fetch_prodouct_records)    
             return items_data
         except Exception as e:
-            logger.debug(f"Error is {e}")
+            #logger.debug(f"Error is {e}")
             return None
     
     async def find_customer_by_name(self, customer_name):
@@ -169,8 +169,8 @@ class InvoiceProcessor(ABC):
             else:
                 missing_products.append(sku)
         
-        logger.debug(f"missing_products: {missing_products}")
-        logger.debug(f"existing_products: {existing_products}")
+        #logger.debug(f"missing_products: {missing_products}")
+        #logger.debug(f"existing_products: {existing_products}")
         self.existing_products_data_dict = existing_products_data_dict
         
         return {

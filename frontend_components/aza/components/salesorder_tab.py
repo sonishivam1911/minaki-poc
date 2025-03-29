@@ -39,7 +39,7 @@ def aza_sales_orders_tab():
                     st.error("Customer ID not found. Please select a customer first.")
                     return
                 
-                logger.debug(f"Config being passed to function is : {zakya_connection}")
+                #logger.debug(f"Config being passed to function is : {zakya_connection}")
                 # Prepare config for API call
                 config = {
                     'base_url': zakya_connection.get('base_url'),
@@ -50,7 +50,7 @@ def aza_sales_orders_tab():
                     'aza_orders' : st.session_state['aza_orders']
                 }
 
-                logger.debug(f"Config being passed to function is : {config}")
+                #logger.debug(f"Config being passed to function is : {config}")
                 
                 # Fetch sales orders
                 sales_orders = fetch_aza_salesorders_by_customer_service(config)
@@ -81,7 +81,7 @@ def aza_sales_orders_tab():
                                 sku_field="SKU"
                             )
                             
-                            logger.debug(f"Missing Sales Order : {missing_orders}")
+                            #logger.debug(f"Missing Sales Order : {missing_orders}")
                             st.session_state['aza_missing_sales_orders'] = missing_orders
                             st.session_state['present_orders'] = present_orders
                             present_orders

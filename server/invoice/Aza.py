@@ -77,7 +77,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                     line_item["item_id"] = invoice_object['existing_sku_item_id_mapping'][sku]
 
                     if line_item["item_id"] in salesorder_product_mapping_dict:
-                        logger.debug(f"Salesorder item id is : {salesorder_product_mapping_dict[line_item["item_id"]]}")
+                        #logger.debug(f"Salesorder item id is : {salesorder_product_mapping_dict[line_item["item_id"]]}")
                         line_item["salesorder_item_id"] = salesorder_product_mapping_dict[line_item["item_id"]]               
                 
                 line_items.append(line_item)
@@ -111,7 +111,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             invoice_payload["gst_no"] = gst
         
         try:
-            logger.debug(f"Creating invoice for {self.customer_name} with {len(line_items)} items")
+            #logger.debug(f"Creating invoice for {self.customer_name} with {len(line_items)} items")
             invoice_response = post_record_to_zakya(
                 self.zakya_connection_object['base_url'],
                 self.zakya_connection_object['access_token'],
@@ -200,7 +200,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             for sku in product_config.get('missing_products', []):
                 # Find matching row in Aza orders
                 matching_rows = self.sales_df[self.sales_df['SKU'] == sku]
-                logger.debug(f"Matched rows : {self.sales_df['SKU']}")
+                #logger.debug(f"Matched rows : {self.sales_df['SKU']}")
                 if not matching_rows.empty:
                     row = matching_rows.iloc[0]
                     unmapped_products.append({
@@ -302,12 +302,12 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             # Add invoice information - check if each sales order item has been invoiced
             if not mapped_sales_order_with_product_df.empty:
                 # Load necessary data from database tables
-                logger.debug("Loading data from database tables")
+                #logger.debug("Loading data from database tables")
                 
                 # Load invoice mappings
                 try:
                     salesorder_invoice_mapping_df = crud.read_table('zakya_salesorder_invoice_mapping')
-                    logger.debug(f"Loaded {len(salesorder_invoice_mapping_df)} sales order-invoice mappings")
+                    #logger.debug(f"Loaded {len(salesorder_invoice_mapping_df)} sales order-invoice mappings")
                 except Exception as e:
                     logger.error(f"Error loading sales order invoice mappings: {str(e)}")
                     salesorder_invoice_mapping_df = pd.DataFrame()
@@ -315,7 +315,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 # Load sales order line item mappings
                 try:
                     salesorder_line_item_mapping_df = crud.read_table('salesorder_line_item_mapping')
-                    logger.debug(f"Loaded {len(salesorder_line_item_mapping_df)} sales order line items")
+                    #logger.debug(f"Loaded {len(salesorder_line_item_mapping_df)} sales order line items")
                 except Exception as e:
                     logger.error(f"Error loading sales order line item mappings: {str(e)}")
                     salesorder_line_item_mapping_df = pd.DataFrame()
@@ -323,7 +323,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 # Load invoice line item mappings
                 try:
                     invoice_item_mapping_df = crud.read_table('zakya_invoice_line_item_mapping')
-                    logger.debug(f"Loaded {len(invoice_item_mapping_df)} invoice line items")
+                    #logger.debug(f"Loaded {len(invoice_item_mapping_df)} invoice line items")
                 except Exception as e:
                     logger.error(f"Error loading invoice line item mappings: {str(e)}")
                     invoice_item_mapping_df = pd.DataFrame()
@@ -373,7 +373,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                     
                     return "Not Invoiced"
                 
-                logger.debug("Starting invoice status check")
+                #logger.debug("Starting invoice status check")
                 
                 # Apply the check to each row in the DataFrame
                 results = []
@@ -390,7 +390,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                     lambda x: mapped_salesorder_dict.get(x, '')
                 )
                 
-                logger.debug(f"Invoice status check completed, status counts: {pd.Series(results).value_counts().to_dict()}")
+                #logger.debug(f"Invoice status check completed, status counts: {pd.Series(results).value_counts().to_dict()}")
                 
             # Add inventory data if requested
             if include_inventory and not mapped_sales_order_with_product_df.empty:
@@ -655,7 +655,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 existing_order = mapping_order[mapping_order["reference_number"] == ref_value_str]
                 
                 if not existing_order.empty:
-                    logger.debug(f"Sales Order with reference number {ref_value_str} already exists.")
+                    #logger.debug(f"Sales Order with reference number {ref_value_str} already exists.")
                     results['details'].append({
                         'reference_number': ref_value_str,
                         'status': 'Skipped',
@@ -732,7 +732,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 
                 # Create the sales order
                 try:
-                    logger.debug(f"Creating sales order for reference {ref_value_str}")
+                    #logger.debug(f"Creating sales order for reference {ref_value_str}")
                     response = post_record_to_zakya(
                         self.zakya_connection_object['base_url'],
                         self.zakya_connection_object['access_token'],

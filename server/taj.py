@@ -39,7 +39,7 @@ async def create_whereclause_fetch_data(pydantic_model, filter_dict, query):
         
         # Run the synchronous database query in a thread pool to make it non-blocking
         data = await asyncio.to_thread(crud.execute_query, query=formatted_query, return_data=True)
-        # logger.debug(f"query is {formatted_query} and data is {data}")
+        # #logger.debug(f"query is {formatted_query} and data is {data}")
         return data.to_dict('records')
     except Exception as e:
         return {"error": f"Error fetching row: {e}"}
@@ -101,7 +101,7 @@ async def preprocess_taj_sales_report(taj_sales_df):
     for _, row in taj_sales_df.iterrows():
         style = row.get("Style", "").strip()
         salesorder_number = row.get("PartyDoc No", "").split(" ")[-1]
-        logger.debug(f"sku is {style} and sales order number is {salesorder_number}")
+        #logger.debug(f"sku is {style} and sales order number is {salesorder_number}")
         
         product_tasks.append(find_missing_products(style))
         product_styles.append(style)
@@ -131,10 +131,10 @@ async def preprocess_taj_sales_report(taj_sales_df):
         else:
             missing_sales_orders.append(salesorder_number)
     
-    logger.debug(f"missing_products is {missing_products}")
-    logger.debug(f"existing_products is {existing_products}")
-    logger.debug(f"existing_sales_orders is {existing_sales_orders}")
-    logger.debug(f"missing_sales_orders is {missing_sales_orders}")
+    #logger.debug(f"missing_products is {missing_products}")
+    #logger.debug(f"existing_products is {existing_products}")
+    #logger.debug(f"existing_sales_orders is {existing_sales_orders}")
+    #logger.debug(f"missing_sales_orders is {missing_sales_orders}")
 
     return {
         "missing_products": missing_products,
@@ -191,7 +191,7 @@ async def create_products_and_sales_order(taj_sales_df, zakya_connection_object,
                     "sku": sku
                 }]
             }
-            logger.debug(f"payload for product data is {product_data} and sku is {sku}")
+            #logger.debug(f"payload for product data is {product_data} and sku is {sku}")
             response = post_record_to_zakya(
                             zakya_connection_object['base_url'],
                             zakya_connection_object['access_token'],  
@@ -200,7 +200,7 @@ async def create_products_and_sales_order(taj_sales_df, zakya_connection_object,
                             product_data
                             )
             config["existing_sku_item_id_mapping"][sku] = response["item_group"]["items"][0]["item_id"]
-            # logger.debug(f"response for creating product is {response["item_group"]["items"][0]["item_id"]}")
+            # #logger.debug(f"response for creating product is {response["item_group"]["items"][0]["item_id"]}")
             
         if party_doc_no in config["missing_sales_orders"]:
             
@@ -211,7 +211,7 @@ async def create_products_and_sales_order(taj_sales_df, zakya_connection_object,
                 "quantity": int(quantity),
                 "hsn_or_sac": int(hsn_code)
             })
-            logger.debug(f"Sales Order number is : {party_doc_no} and sales order payload is {sales_orders_payload}")
+            #logger.debug(f"Sales Order number is : {party_doc_no} and sales order payload is {sales_orders_payload}")
     
     for salesorder_number, line_items in sales_orders_payload.items():
         
@@ -221,7 +221,7 @@ async def create_products_and_sales_order(taj_sales_df, zakya_connection_object,
             "date": str(party_doc_dt.strftime("%Y-%m-%d")),
             "line_items": line_items,
         }
-        logger.debug(f"Sales Order Payload is {salesorder_payload}")
+        #logger.debug(f"Sales Order Payload is {salesorder_payload}")
         response = post_record_to_zakya(
                             zakya_connection_object['base_url'],
                             zakya_connection_object['access_token'],  
@@ -230,7 +230,7 @@ async def create_products_and_sales_order(taj_sales_df, zakya_connection_object,
                             salesorder_payload
                             )
         config["existing_salesorder_number_salesorder_id_mapping"][salesorder_number] = response["salesorder"]["salesorder_id"]
-        # logger.debug(f"Response from creating sales order is : {response["salesorder"]["salesorder_id"]}")
+        # #logger.debug(f"Response from creating sales order is : {response["salesorder"]["salesorder_id"]}")
 
 
     return config["existing_sku_item_id_mapping"]
@@ -249,9 +249,9 @@ def fetch_sales_order(config,zakya_connection_object):
             f'/salesorders/{config["existing_salesorder_number_salesorder_id_mapping"][salesorder_id]}' 
             )
 
-        # logger.debug(f"Sales order returned is {sales_order}")
+        # #logger.debug(f"Sales order returned is {sales_order}")
         salesorder_map[sales_order["salesorder"]["salesorder_number"]] = sales_order["salesorder"]["salesorder_id"] 
-        # logger.debug(f"Sales order mapping is {salesorder_map}")
+        # #logger.debug(f"Sales order mapping is {salesorder_map}")
 
         for item in sales_order["salesorder"]["line_items"]:
             item_sales_map[(sales_order["salesorder"]["salesorder_id"] , item["item_id"])] = item["line_item_id"]
@@ -297,7 +297,7 @@ async def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
         tax_id = "1923531000000027454" if item_dept == "MENS GARMENT" and customer_data[0]["place_of_contact"] != "DL" else "1923531000000027518"
         salesorder_id = invoice_object["salesorder_map"].get(party_doc_no)
         item_id = invoice_object['sku_to_item_id'].get(sku)
-        logger.debug(f"salesorder_id is {salesorder_id} and item_id is {item_id}")
+        #logger.debug(f"salesorder_id is {salesorder_id} and item_id is {item_id}")
         salesorder_item_id = invoice_object['item_sales_map'].get((salesorder_id, item_id))
 
         if not salesorder_item_id:
@@ -329,7 +329,7 @@ async def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
             "gst_treatment": "business_gst",
             "template_id": 1923531000000916001
         }
-        logger.debug(f"Invoice payload is {invoice_payload}")
+        #logger.debug(f"Invoice payload is {invoice_payload}")
         invoice_response = post_record_to_zakya(
                 zakya_connection_object['base_url'],
                 zakya_connection_object['access_token'],
@@ -337,7 +337,7 @@ async def create_invoices(taj_sales_df,zakya_connection_object,invoice_object):
                 '/invoices',
                 invoice_payload
             )
-        logger.debug(f"Invoice Response is  : {invoice_response}")
+        #logger.debug(f"Invoice Response is  : {invoice_response}")
         invoice_summary.append({
             "invoice_id": invoice_response.get("invoice_id"),
             "invoice_number": invoice_response.get("invoice_number"),
@@ -362,7 +362,7 @@ def process_taj_sales(taj_sales_df,invoice_date,zakya_connection_object):
         'invoice_date' : invoice_date,
         'sku_to_item_id' : sku_to_item_id
     }
-    logger.debug(f"salesorder_map is {salesorder_map}")
-    logger.debug(f"item_sales_map is {item_sales_map}")
+    #logger.debug(f"salesorder_map is {salesorder_map}")
+    #logger.debug(f"item_sales_map is {item_sales_map}")
     invoice_df = asyncio.run(create_invoices(taj_sales_df,zakya_connection_object,invoice_object))
     return invoice_df

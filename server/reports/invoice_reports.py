@@ -76,7 +76,7 @@ async def process_items_in_batches(items, endpoint, batch_size=20):
                     line_items = details['line_items']
                 else:
                     # Skip if no line items are found
-                    logger.debug(f"No line items found in {endpoint} {item_id}")
+                    #logger.debug(f"No line items found in {endpoint} {item_id}")
                     continue
                 
                 # Process each line item

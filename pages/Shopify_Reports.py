@@ -52,7 +52,7 @@ def shopify_collection_controller(connector):
             # Fetch products for the selected collection
             with st.spinner("Loading products..."):
                 products = custom_collection_resource.get_products_in_collection(selected_id)    
-                # logger.debug(f"Products fetched from collection : {products}")
+                # #logger.debug(f"Products fetched from collection : {products}")
 
             # Display products
             st.subheader(f"Products in {selected_title}")

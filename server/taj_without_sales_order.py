@@ -74,8 +74,8 @@ async def preprocess_products(taj_sales_df):
         else:
             missing_products.append(style)
     
-    logger.debug(f"missing_products is {missing_products}")
-    logger.debug(f"existing_products is {existing_products}")
+    #logger.debug(f"missing_products is {missing_products}")
+    #logger.debug(f"existing_products is {existing_products}")
     
     return {
         "missing_products": missing_products,
@@ -174,7 +174,7 @@ async def create_invoices(taj_sales_df, zakya_connection_object, invoice_object)
             invoice_payload["gst_no"] = customer_data["gst"]
         
         try:
-            logger.debug(f"Creating invoice for {branch_name} with payload: {invoice_payload.keys()} and {len(invoice_payload["line_items"])}")
+            #logger.debug(f"Creating invoice for {branch_name} with payload: {invoice_payload.keys()} and {len(invoice_payload["line_items"])}")
             invoice_response = post_record_to_zakya(
                 zakya_connection_object['base_url'],
                 zakya_connection_object['access_token'],
