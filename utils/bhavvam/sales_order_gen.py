@@ -237,6 +237,14 @@ def process_sales_order(fields, customer_name, zakya_config):
                 "item_total": int(fields["Total"])
             }
         ],
+        "custom_fields": [
+                    {
+                        "api_name": "cf_order_type",                        
+                        "placeholder": "cf_order_type",
+                        "value": "eCommerce Order"
+                    }
+                    
+                ],
         "notes": f"Order Source : {fields["Order Source"]}",
         "terms": "Terms and Conditions"
     }
@@ -246,7 +254,7 @@ def process_sales_order(fields, customer_name, zakya_config):
         zakya_config['base_url'],
         zakya_config['access_token'],  
         zakya_config['organization_id'],
-        '/salesorders',
+        'salesorders',
         salesorder_payload
     )    
 

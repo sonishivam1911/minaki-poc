@@ -2,7 +2,7 @@ import logging
 
 # Centralized logging configuration
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler("process_logs.log"),

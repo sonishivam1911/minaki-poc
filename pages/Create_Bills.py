@@ -10,6 +10,9 @@ from server.bills.dial import process_bills_dial, process_bills
 from server.bills.pkj import process_bills_pkj
 from server.bills.taj import process_bills_taj
 from server.bills.shiprocket import process_bills_sr
+from server.bills.np import process_bills_np
+from server.bills.aza_opc import process_bills_aza_opc
+from server.bills.zakya import process_bills_zakya
 
 # Configure logging (Set to WARNING to suppress unnecessary logs)
 logging.basicConfig(level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -55,6 +58,15 @@ async def process_pdf(temp_path):
                 break
             elif line.startswith("Shiprocket Private Limited"):
                 result = process_bills_sr(lines)
+                break
+            elif line.startswith("N.P. JEWELLERS"):
+                result = process_bills_np(lines)
+                break
+            elif line.startswith("Aza Fashions"):
+                result = process_bills_aza_opc(lines)
+                break
+            elif line.startswith("ZOHO Corporation Private Limited"):
+                result = process_bills_zakya(lines)
                 break
 
         if not result:

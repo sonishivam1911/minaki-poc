@@ -112,9 +112,9 @@ def process_bills_pkj(lines):
 
     return payload
 
-# Example usage
-invoice_data = "PK2058.pdf"
+# # Example usage
+# invoice_data = "PK2058.pdf"
 
-# Generate payload
-payload = process_bills_pkj(invoice_data)
-print(json.dumps(payload, indent=4))
+# # Generate payload
+# payload = process_bills_pkj(invoice_data)
+# print(json.dumps(payload, indent=4))
