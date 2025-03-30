@@ -16,25 +16,10 @@ def fetch_all_salesorder_and_mapping_records_from_database(config):
         tuple: (new_orders_df, existing_mappings_df)
     """
     try:
-        # Step 1: Get existing mappings from database
-        logger.debug("Fetching existing mappings from database")
-        try:
-            existing_mappings_df = crud.read_table('salesorder_line_item_mapping')
-            logger.debug(f"Found {len(existing_mappings_df)} existing sales order mappings")
-        except Exception as db_error:
-            logger.debug(f"Error reading existing mappings: {str(db_error)}")
-            existing_mappings_df = pd.DataFrame()
-        
-        # Get list of salesorder IDs that already have mappings
-        if not existing_mappings_df.empty and 'salesorder_id' in existing_mappings_df.columns:
-            existing_salesorder_ids = existing_mappings_df['salesorder_id'].unique().tolist()
-            logger.debug(f"Found {len(existing_salesorder_ids)} unique existing salesorder IDs")
-        else:
-            existing_salesorder_ids = []
-            logger.debug("No existing salesorder IDs found")
-        
+
+        existing_salesorder_ids = []
         # Step 2: Fetch all sales orders from Zakya
-        logger.debug("Fetching all sales orders from Zakya API")
+        #logger.debug("Fetching all sales orders from Zakya API")
         try:
             sales_orders_data = fetch_records_from_zakya(
                 config['api_domain'],
@@ -45,28 +30,28 @@ def fetch_all_salesorder_and_mapping_records_from_database(config):
             
             all_orders = extract_record_list(sales_orders_data, "salesorders")
             all_orders_df = pd.DataFrame(all_orders)
-            logger.debug(f"Found {len(all_orders_df)} total sales orders in Zakya")
+            #logger.debug(f"Found {len(all_orders_df)} total sales orders in Zakya")
             
         except Exception as api_error:
-            logger.debug(f"Error fetching sales orders from API: {str(api_error)}")
+            #logger.debug(f"Error fetching sales orders from API: {str(api_error)}")
             raise
         
         # Step 3: Identify sales orders that need mapping
         if all_orders_df.empty:
-            logger.debug("No sales orders found in Zakya")
-            return pd.DataFrame(), existing_mappings_df
+            #logger.debug("No sales orders found in Zakya")
+            return pd.DataFrame(), pd.DataFrame()
             
         if not existing_salesorder_ids:
-            logger.debug("All sales orders need processing (no existing mappings)")
-            return all_orders_df, existing_mappings_df
+            #logger.debug("All sales orders need processing (no existing mappings)")
+            return all_orders_df, pd.DataFrame()
             
         new_orders_df = all_orders_df[~all_orders_df['salesorder_id'].isin(existing_salesorder_ids)]
         logger.debug(f"Found {len(new_orders_df)} sales orders that need mapping")
         
-        return new_orders_df, existing_mappings_df
+        return new_orders_df, pd.DataFrame()
         
     except Exception as e:
-        logger.debug(f"Error in fetch_all_salesorder_and_mapping_records_from_database: {str(e)}")
+        #logger.debug(f"Error in fetch_all_salesorder_and_mapping_records_from_database: {str(e)}")
         return pd.DataFrame(), pd.DataFrame()
 
 async def fetch_missing_salesorder_details(new_orders_df, config):
@@ -101,20 +86,20 @@ async def fetch_missing_salesorder_details(new_orders_df, config):
             batch = new_orders_records[i:i+batch_size]
             
             batch_num = i // batch_size + 1
-            logger.debug(f"Processing batch {batch_num} of {total_batches} ({len(batch)} orders)")
+            #logger.debug(f"Processing batch {batch_num} of {total_batches} ({len(batch)} orders)")
             
             # Create tasks for each sales order in the batch
             tasks = []
             for order in batch:
                 order_id = order.get('salesorder_id')
                 if not order_id:
-                    logger.debug("Skipping order with missing ID")
+                    #logger.debug("Skipping order with missing ID")
                     continue
                     
                 # Define coroutine to fetch with semaphore
                 async def fetch_with_semaphore(order_id):
                     async with semaphore:
-                        logger.debug(f"Fetching details for order {order_id}")
+                        #logger.debug(f"Fetching details for order {order_id}")
                         try:
                             return await asyncio.to_thread(
                                 fetch_object_for_each_id,
@@ -124,7 +109,7 @@ async def fetch_missing_salesorder_details(new_orders_df, config):
                                 f'salesorders/{order_id}'
                             )
                         except Exception as e:
-                            logger.debug(f"Error fetching order {order_id}: {str(e)}")
+                            #logger.debug(f"Error fetching order {order_id}: {str(e)}")
                             return None
                 
                 tasks.append((order_id, asyncio.create_task(fetch_with_semaphore(order_id))))
@@ -134,7 +119,7 @@ async def fetch_missing_salesorder_details(new_orders_df, config):
                 try:
                     details = await task
                     if not details:
-                        logger.debug(f"No details returned for order {order_id}")
+                        #logger.debug(f"No details returned for order {order_id}")
                         continue
                     
                     # Process the main sales order data
@@ -144,7 +129,7 @@ async def fetch_missing_salesorder_details(new_orders_df, config):
                     elif 'salesorder' in details:
                         order_data = details['salesorder']
                     else:
-                        logger.debug(f"Unexpected response format for order {order_id}")
+                        #logger.debug(f"Unexpected response format for order {order_id}")
                         continue
                     
                     # Extract line items
@@ -152,7 +137,7 @@ async def fetch_missing_salesorder_details(new_orders_df, config):
                     if 'line_items' in order_data:
                         line_items = order_data['line_items']
                     else:
-                        logger.debug(f"No line items found in order {order_id}")
+                        #logger.debug(f"No line items found in order {order_id}")
                         continue
                     
                     # Extract invoice data if present
@@ -229,17 +214,17 @@ async def fetch_missing_salesorder_details(new_orders_df, config):
                         line_item_mapping_data.append(mapping_record)
                         
                 except Exception as e:
-                    logger.debug(f"Error processing order {order_id}: {str(e)}")
+                    #logger.debug(f"Error processing order {order_id}: {str(e)}")
                     continue
         
-        logger.debug(f"Completed processing {len(new_orders_records)} orders")
-        logger.debug(f"Generated {len(line_item_mapping_data)} line item mappings")
-        logger.debug(f"Generated {len(invoice_mapping_data)} invoice mappings")
+        #logger.debug(f"Completed processing {len(new_orders_records)} orders")
+        #logger.debug(f"Generated {len(line_item_mapping_data)} line item mappings")
+        #logger.debug(f"Generated {len(invoice_mapping_data)} invoice mappings")
         
         return line_item_mapping_data, invoice_mapping_data
         
     except Exception as e:
-        logger.debug(f"Error in fetch_missing_salesorder_details: {str(e)}")
+        #logger.debug(f"Error in fetch_missing_salesorder_details: {str(e)}")
         return [], []
 
 def extract_invoice_mapping_data(sales_order_details, order_id):
@@ -257,11 +242,11 @@ def extract_invoice_mapping_data(sales_order_details, order_id):
     
     # Check if invoices array exists
     if 'invoices' not in sales_order_details:
-        logger.debug(f"No invoices found for order {order_id}")
+        #logger.debug(f"No invoices found for order {order_id}")
         return invoice_mapping_data
         
     invoices = sales_order_details['invoices']
-    logger.debug(f"Found {len(invoices)} invoices for order {order_id}")
+    #logger.debug(f"Found {len(invoices)} invoices for order {order_id}")
     
     # Extract mapping data for each invoice
     for invoice in invoices:
@@ -279,7 +264,7 @@ def extract_invoice_mapping_data(sales_order_details, order_id):
             }
             invoice_mapping_data.append(mapping_record)
         except Exception as e:
-            logger.debug(f"Error extracting invoice data: {str(e)}")
+            #logger.debug(f"Error extracting invoice data: {str(e)}")
             continue
             
     return invoice_mapping_data
@@ -342,7 +327,7 @@ def save_new_mappings_to_database(line_item_mapping_data, existing_mappings_df):
         DataFrame: Combined DataFrame with all mappings
     """
     if not line_item_mapping_data:
-        logger.debug("No new line item mappings to save")
+        #logger.debug("No new line item mappings to save")
         return existing_mappings_df
         
     # Convert to DataFrame
@@ -351,11 +336,11 @@ def save_new_mappings_to_database(line_item_mapping_data, existing_mappings_df):
     
     # If no existing mappings, create a new table
     if existing_mappings_df.empty:
-        logger.debug("Creating new line item mapping table")
+        #logger.debug("Creating new line item mapping table")
         crud.create_table('salesorder_line_item_mapping', new_mappings_df)
     else:
         # Append new mappings to existing table
-        logger.debug("Appending to existing line item mapping table")
+        #logger.debug("Appending to existing line item mapping table")
         all_mappings_df = pd.concat([existing_mappings_df, new_mappings_df], ignore_index=True)
         crud.create_table('salesorder_line_item_mapping', all_mappings_df)
     
@@ -375,17 +360,17 @@ def save_invoice_mappings_to_database(invoice_mapping_data):
         DataFrame: DataFrame of all invoice mappings
     """
     if not invoice_mapping_data:
-        logger.debug("No invoice mappings to save")
+        #logger.debug("No invoice mappings to save")
         return pd.DataFrame()
         
     # Convert to DataFrame
     invoice_mappings_df = pd.DataFrame.from_records(invoice_mapping_data)
-    logger.debug(f"Saving {len(invoice_mappings_df)} invoice mappings")
+    #logger.debug(f"Saving {len(invoice_mappings_df)} invoice mappings")
     
     # Check if mapping table exists
     try:
         existing_invoice_mappings = crud.read_table('zakya_salesorder_invoice_mapping')
-        logger.debug(f"Found {len(existing_invoice_mappings)} existing invoice mappings")
+        #logger.debug(f"Found {len(existing_invoice_mappings)} existing invoice mappings")
         
         # Combine with new mappings
         all_invoice_mappings = pd.concat([existing_invoice_mappings, invoice_mappings_df], ignore_index=True)
@@ -398,15 +383,15 @@ def save_invoice_mappings_to_database(invoice_mapping_data):
         
         # Save combined mappings
         crud.create_table('zakya_salesorder_invoice_mapping', all_invoice_mappings)
-        logger.debug(f"Saved {len(all_invoice_mappings)} total invoice mappings")
+        #logger.debug(f"Saved {len(all_invoice_mappings)} total invoice mappings")
         
         return all_invoice_mappings
         
     except Exception:
         # Table doesn't exist, create new
-        logger.debug("Creating new invoice mapping table")
+        #logger.debug("Creating new invoice mapping table")
         crud.create_table('zakya_salesorder_invoice_mapping', invoice_mappings_df)
-        logger.debug(f"Created table with {len(invoice_mappings_df)} invoice mappings")
+        #logger.debug(f"Created table with {len(invoice_mappings_df)} invoice mappings")
         
         return invoice_mappings_df
 
@@ -420,11 +405,12 @@ async def sync_salesorder_mappings(config):
     Returns:
         tuple: (line_item_mappings_df, invoice_mappings_df)
     """
-    logger.debug("Starting sales order synchronization")
+    #logger.debug("Starting sales order synchronization")
     
     # Step 1: Get existing mappings and identify orders needing processing
     new_orders_df, existing_mappings_df = fetch_all_salesorder_and_mapping_records_from_database(config)
     
+    logger.debug(f'New Order df is : {new_orders_df}')
     # Step 2: Process new sales orders to create mappings
     if not new_orders_df.empty:
         logger.debug(f"Processing {len(new_orders_df)} new sales orders")
@@ -455,7 +441,7 @@ async def sync_salesorder_mappings(config):
         logger.debug("Completed sales order synchronization")
         return all_line_item_mappings, all_invoice_mappings
     else:
-        logger.debug("No new sales orders to process")
+        #logger.debug("No new sales orders to process")
         return existing_mappings_df, pd.DataFrame()
 
 def sync_salesorder_mappings_sync(config):

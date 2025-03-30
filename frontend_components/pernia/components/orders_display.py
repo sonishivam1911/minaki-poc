@@ -48,7 +48,7 @@ def pernia_orders_section():
                 # Call the backend service to analyze product mapping
                 results = analyze_products(df)
 
-                # logger.debug(f"Analyze Stream df : {results}")
+                # #logger.debug(f"Analyze Stream df : {results}")
                 
                 # Store results in session state
                 st.session_state['mapped_products'] = results.get('mapped_products')

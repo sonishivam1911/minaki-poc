@@ -84,10 +84,10 @@ def create_sr_forward(params):
         for item in order_data.get("line_items", [])
     ]
 
-    logger.debug(f"Order items are : {order_items}")
+    #logger.debug(f"Order items are : {order_items}")
 
     # Log contact person information
-    logger.debug(f"Contact Person information is: {order_data.get('contact_persons', [])}")
+    #logger.debug(f"Contact Person information is: {order_data.get('contact_persons', [])}")
     
     # Use provided contact person or get from order data
     if contact_person:
@@ -141,7 +141,7 @@ def create_sr_forward(params):
     }
     #  parsed_data = json.loads(payload)
     # for key,value in parsed_data.items():
-    #     logger.debug(f"key is {key} and value is {value}")
+    #     #logger.debug(f"key is {key} and value is {value}")
     
     response = requests.request("POST", url, headers=headers, data=payload)
     return response.json()
@@ -382,7 +382,7 @@ async def fetch_all_pages_data(token: str,
     total_pages = meta.get('total_pages', 1)
     per_page = meta.get('per_page', 50)
 
-    logger.debug(f"meta data is :{meta}")
+    #logger.debug(f"meta data is :{meta}")
     
     # Generate page URLs
     page_urls = [

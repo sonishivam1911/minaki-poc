@@ -22,12 +22,12 @@ class PerniaInvoiceProcessor(InvoiceProcessor):
     
     def preprocess_data_sync(self):
         """Preprocess Pernia sales data."""
-        logger.debug(f"Starting preprocessing of {len(self.sales_df)} Pernia records")
+        #logger.debug(f"Starting preprocessing of {len(self.sales_df)} Pernia records")
         
         # Filter rows where SKU Code is not null
         # sku_column_name = self.get_sku_field_name()
         self.sales_df = self.sales_df[self.sales_df["SKU Code"].notnull()]
-        logger.debug(f"After filtering null SKUs: {len(self.sales_df)} records remaining")
+        #logger.debug(f"After filtering null SKUs: {len(self.sales_df)} records remaining")
         
         # Convert PO Date to datetime if it's a string
         if "PO Date" in self.sales_df.columns and self.sales_df["PO Date"].dtype == 'object':
@@ -36,7 +36,7 @@ class PerniaInvoiceProcessor(InvoiceProcessor):
         # Filter based on Product Status - must be "Received" or "QC Pass"
         valid_statuses = ["Received and QC Pass"]
         self.sales_df = self.sales_df[self.sales_df["Product Status"].isin(valid_statuses)]
-        logger.debug(f"After filtering by status: {len(self.sales_df)} records remaining with status in {valid_statuses}")
+        #logger.debug(f"After filtering by status: {len(self.sales_df)} records remaining with status in {valid_statuses}")
         
         # Check if there are any records left after filtering
         if len(self.sales_df) == 0:
@@ -92,7 +92,7 @@ class PerniaInvoiceProcessor(InvoiceProcessor):
             # Insert records into mapping table
             if mapping_records:
                 crud.create_insert_statements(pd.DataFrame.from_records(mapping_records),"pernia_invoice_mapping")
-                logger.debug(f"Saved {len(mapping_records)} PO-Invoice mappings")
+                #logger.debug(f"Saved {len(mapping_records)} PO-Invoice mappings")
         except Exception as e:
             logger.error(f"Error saving PO-Invoice mappings: {e}")
     
@@ -132,7 +132,7 @@ class PerniaInvoiceProcessor(InvoiceProcessor):
                 item_description = f"{designer_name} - {po_type} - {sku} - {vendor_sku}" if designer_name and po_type else "Pernia Order"
                 
                 # Skip empty rows
-                if not sku or po_value <= 0:
+                if not vendor_sku or po_value <= 0:
                     continue
                     
                 # Prepare line item
@@ -149,7 +149,7 @@ class PerniaInvoiceProcessor(InvoiceProcessor):
                     line_item["item_id"] = invoice_object['existing_sku_item_id_mapping'][sku]
                     
                     if line_item["item_id"] in salesorder_product_mapping_dict:
-                        logger.debug(f"Salesorder item id is : {salesorder_product_mapping_dict[line_item["item_id"]]}")
+                        #logger.debug(f"Salesorder item id is : {salesorder_product_mapping_dict[line_item["item_id"]]}")
                         line_item["salesorder_item_id"] = salesorder_product_mapping_dict[line_item["item_id"]]                    
                 
                 line_items.append(line_item)
@@ -184,7 +184,7 @@ class PerniaInvoiceProcessor(InvoiceProcessor):
             invoice_payload["gst_no"] = gst
         
         try:
-            logger.debug(f"Creating invoice for {self.customer_name} with {len(line_items)} items")
+            #logger.debug(f"Creating invoice for {self.customer_name} with {len(line_items)} items")
             invoice_response = post_record_to_zakya(
                 self.zakya_connection_object['base_url'],
                 self.zakya_connection_object['access_token'],

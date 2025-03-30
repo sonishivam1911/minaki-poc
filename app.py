@@ -48,9 +48,12 @@ def main():
     """Main application logic."""
 
     zakya_auth_df = crud.read_table("zakya_auth")
-    zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
-    
-    
+    if isinstance(zakya_auth_df,pd.DataFrame):
+        zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
+    else:
+        st.error(f"Issue with database connection : {zakya_auth_df}")
+        zakya_auth_df = pd.DataFrame()
+        
     if not zakya_auth_df.empty:
         try:
             set_access_token_via_refresh_token()
@@ -93,7 +96,7 @@ def set_access_token_via_refresh_token():
     
     # Correctly access the refresh token value
     refresh_token = zakya_auth_df["refresh_token"].iloc[0]
-    # logger.debug(f"Refresh token is {refresh_token}")
+    # #logger.debug(f"Refresh token is {refresh_token}")
     st.session_state["refresh_token"] = refresh_token
     
     refresh_token_data = get_access_token(refresh_token=refresh_token)
@@ -107,13 +110,13 @@ def set_access_token_via_refresh_token():
     # Set API domain consistently
     st.session_state['api_domain'] = 'https://api.zakya.in/'
 
-    logger.debug(f"State variables are as follows : {st.session_state}")
+    #logger.debug(f"State variables are as follows : {st.session_state}")
 
 
 def set_refresh_token():
-    logger.debug(f"Session state variables are : {st.session_state}")
+    #logger.debug(f"Session state variables are : {st.session_state}")
     code = st.query_params.get("code")
-    logger.debug(f"code is {code}")
+    #logger.debug(f"code is {code}")
     
     if "code" not in st.session_state and code and len(code) > 0:
         st.session_state['code'] = code
@@ -145,7 +148,7 @@ def fetch_zakya_code():
 
 def token_authentication():
     token_data = get_access_token(auth_code=st.session_state['code'])
-    logger.debug(f"Token data is {token_data}")
+    #logger.debug(f"Token data is {token_data}")
     
     if 'access_token' not in token_data:
         raise KeyError('access_token')

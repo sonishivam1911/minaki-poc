@@ -1,7 +1,7 @@
 
 import pdfplumber
 from datetime import datetime
-import fitz 
+import fitz  # PyMuPDF
 import re
 import pandas as pd
 from utils.zakya_api import post_record_to_zakya
@@ -182,12 +182,12 @@ def process_sales_order(fields, customer_name, zakya_config):
     mapping_product = crud.read_table("zakya_products")
     mapping_order = crud.read_table("zakya_sales_order")
     mapping_partner = crud.read_table("mapping__partner")
-    logger.debug(f"mapping partner is : {mapping_partner}")
+    #logger.debug(f"mapping partner is : {mapping_partner}")
     customer_matches = mapping_partner[mapping_partner["Display Name"] == customer_name]
-    logger.debug(f"customer matched is {customer_matches}")
+    #logger.debug(f"customer matched is {customer_matches}")
     if len(customer_matches) > 0:
         customer_id = customer_matches["Contact ID"].iloc[0]
-        logger.debug(f"customer_id is {customer_id}")
+        #logger.debug(f"customer_id is {customer_id}")
     # else:
     #     print(f"No customer found with name: {customer_name}")
     #     # Use a default or raise an exception
@@ -212,6 +212,7 @@ def process_sales_order(fields, customer_name, zakya_config):
         print(f"No product found with SKU: {fields['SKU']}")       
 
     reference_number = fields.get("PO No")
+    os = fields.get("Order Source")
     if not reference_number:
         print("Reference number is missing!")
         return
@@ -219,7 +220,9 @@ def process_sales_order(fields, customer_name, zakya_config):
     existing_orders = mapping_order
     for _,order in existing_orders.iterrows():
         logger.debug(f"order is {order}")
-        if order.get("reference_number") == reference_number:
+        po_refnum = order.get("reference_number")
+        po_refnum = re.sub(r"PO:\s*", "", po_refnum) 
+        if po_refnum == reference_number:
             print(f"Sales Order with reference number {reference_number} already exists.")
             return
     
@@ -231,21 +234,13 @@ def process_sales_order(fields, customer_name, zakya_config):
         "line_items": [
             {
                 "item_id": int(item_id) if item_id else '',
-                "description": f"PO: {fields["PO No"]} and PPUS Code: {fields["Partner SKU"]}",
+                "description": f"PO: {reference_number}",
                 "rate": int(fields["Unit Price"]),
                 "quantity": int(fields["Quantity"]),
                 "item_total": int(fields["Total"])
             }
         ],
-        "custom_fields": [
-                    {
-                        "api_name": "cf_order_type",                        
-                        "placeholder": "cf_order_type",
-                        "value": "eCommerce Order"
-                    }
-                    
-                ],
-        "notes": f"Order Source : {fields["Order Source"]}",
+        "notes": f"Order Source : {os}",
         "terms": "Terms and Conditions"
     }
     

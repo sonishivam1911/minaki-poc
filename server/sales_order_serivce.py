@@ -25,11 +25,11 @@ def fetch_salesorders_by_customer(config):
         # Convert to DataFrame for easier filtering
         sales_orders_df = pd.DataFrame(all_orders)
 
-        logger.debug(f" Sales Order Df is : {len(sales_orders_data)}")
+        #logger.debug(f" Sales Order Df is : {len(sales_orders_data)}")
         
         # Filter to only include the selected customer
         sales_orders_df = sales_orders_df[sales_orders_df['customer_id'] == config['customer_id']]
-        logger.debug(f"Sales Order Df is : {(sales_orders_data)}")
+        #logger.debug(f"Sales Order Df is : {(sales_orders_data)}")
         
         # Join with the salesorder_item_mapping to get item details
         sales_orders_df = pd.merge(
@@ -64,7 +64,7 @@ def fetch_salesorders_by_customer(config):
             mapped_sales_order_with_product_df = sales_orders_df
         
 
-        logger.debug(f"Columns for tale :  {mapped_sales_order_with_product_df.columns}")
+        #logger.debug(f"Columns for tale :  {mapped_sales_order_with_product_df.columns}")
         # Group by salesorder, item name, and date, then calculate averages for metrics
         grouped_df = mapped_sales_order_with_product_df.groupby(
             ['salesorder_number_x', 'item_name', 'date']

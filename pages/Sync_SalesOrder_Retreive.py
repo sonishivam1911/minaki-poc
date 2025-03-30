@@ -84,16 +84,16 @@ def process_mappings(batch_size):
         # Process sales order mappings
         add_log("Processing sales order mappings...")
         start_time = time.time()
-        salesorder_df = sync_salesorder_mappings_sync(config)
+        existing_salesorder_df, new_salesorder_df = sync_salesorder_mappings_sync(config)
         salesorder_time = time.time() - start_time
         
-        if not salesorder_df.empty:
+        if not new_salesorder_df.empty:
             st.session_state.salesorder_result = {
                 "success": True,
-                "count": len(salesorder_df),
+                "count": len(new_salesorder_df),
                 "time": salesorder_time
             }
-            add_log(f"Successfully processed {len(salesorder_df)} sales order line items in {salesorder_time:.2f} seconds", "success")
+            add_log(f"Successfully processed {len(new_salesorder_df)} sales order line items in {salesorder_time:.2f} seconds", "success")
         else:
             st.session_state.salesorder_result = {
                 "success": False,

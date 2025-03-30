@@ -41,15 +41,17 @@ def sales_orders_tab():
                     'organization_id': zakya_connection.get('organization_id'),
                     'customer_id': customer_id,
                     'include_inventory': True,
+                    'pernia_orders' : st.session_state.get('pernia_orders'),
                     'start_date': st.session_state.get('start_date'),  # Add start date
                      'end_date': st.session_state.get('end_date'),
                     'date_filter_days': 45  # Add days to filter                    
-                                }
+                    }
                 
                 st.info(f"Start date is : {st.session_state.get('start_date')}")
                 st.info(f"End date is : {st.session_state.get('end_date')}")
                 # Fetch sales orders
                 sales_orders = fetch_salesorders_by_customer_service(config)
+                logger.debug(f"Sales order fetched are : {sales_orders}")
                 
                 # Fetch inventory data separately for all mapped products
                 inventory_data = fetch_inventory_data(
@@ -77,7 +79,7 @@ def sales_orders_tab():
                                 sales_orders
                             )
                             
-                            logger.debug(f"Mising Sales Order : {missing_orders}")
+                            #logger.debug(f"Mising Sales Order : {missing_orders}")
                             st.session_state['missing_sales_orders'] = missing_orders
                             st.session_state['present_orders'] = present_orders
                             
@@ -175,7 +177,7 @@ def missing_sales_orders_container():
             product_mapping = st.session_state.get('product_mapping', {})
             sales_orders = st.session_state.get('sales_orders')
 
-            logger.debug(f" Product mapping from front end is : {product_mapping}")
+            #logger.debug(f" Product mapping from front end is : {product_mapping}")
             
             # Check if we have all required data
             if pernia_orders is not None and product_mapping and isinstance(sales_orders, pd.DataFrame):
@@ -267,13 +269,23 @@ def missing_sales_orders_container():
             # Display results
             if results.get('success'):
                 st.success(f"Successfully created {results.get('created_count', 0)} sales orders!")
-                
-                # Refresh sales order data
-                st.session_state['sales_orders'] = None
-                st.session_state['missing_sales_orders'] = None
+                st.json(results.get('details'))
+                # map missing salesorder to pernia table okay ?
+                missng_salesorder_reference_number_mapping = {}
+                for obj in results.get('details'):
+                    # remove PO
+                    reference_number = obj.get('reference_number','').split(":")[-1].strip()
+                    salesorder_id = obj.get('salesorder_id','')
+                    missng_salesorder_reference_number_mapping[reference_number] = salesorder_id
+
+
+                #update state 
+                st.session_state['all_items_mapped'] = True
+                st.session_state['missng_salesorder_reference_number_mapping'] = missng_salesorder_reference_number_mapping
+                st.info("Please create invoices now")    
                 
                 # Force refresh
-                st.rerun()
+                # st.rerun()
             else:
                 st.error(f"Error creating sales orders: {results.get('error', 'Unknown error')}")
                 

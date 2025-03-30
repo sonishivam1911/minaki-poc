@@ -89,7 +89,7 @@ async def fetch_missing_invoice_details(new_orders_df):
                 elif 'line_items' in details:
                     line_items = details['line_items']
                 else:
-                    logger.debug(f"No line items found in invoice {order_id}")
+                    #logger.debug(f"No line items found in invoice {order_id}")
                     continue
                 
                 # Process each line item

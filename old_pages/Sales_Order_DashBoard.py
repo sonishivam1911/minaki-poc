@@ -101,7 +101,7 @@ def container_for_customer_selection():
             
                 if customer_data and len(customer_data) > 0:
                     customer_data = customer_data[0]
-                    logger.debug(f"customer_data is  : {customer_data}")
+                    #logger.debug(f"customer_data is  : {customer_data}")
                     customer_id = customer_data.get('contact_id')
                     st.session_state['all_contacts_customer_id'] = customer_id
                 

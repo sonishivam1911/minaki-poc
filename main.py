@@ -30,11 +30,11 @@ load_dotenv()
 
 def load_and_rename_master(filepath="product_master.csv"):
     try:
-        logger.debug(f"Entering load_and_rename_master with filepath: {filepath}")
+        #logger.debug(f"Entering load_and_rename_master with filepath: {filepath}")
         df = crud.read_table("product_master")
-        logger.debug(f"Loaded product master with shape: {df.shape}")
+        #logger.debug(f"Loaded product master with shape: {df.shape}")
         df.rename(columns=column_rename_map, inplace=True)
-        logger.debug("Renamed columns in product master.")
+        #logger.debug("Renamed columns in product master.")
         return df
     except Exception as e:
         logger.error(f"Error in load_and_rename_master: {e}")
@@ -42,24 +42,24 @@ def load_and_rename_master(filepath="product_master.csv"):
 
 def filter_existing_products(df, category_name=None, components=None, work=None, finish=None, finding=None):
     try:
-        logger.debug("Entering filter_existing_products")
-        logger.debug(f"Initial DataFrame shape: {df.shape}")
+        #logger.debug("Entering filter_existing_products")
+        #logger.debug(f"Initial DataFrame shape: {df.shape}")
         filtered_df = df.copy()
         if category_name:
             filtered_df = filtered_df[filtered_df["Category_Name"].str.lower() == category_name.lower()]
-            logger.debug(f"Filtered by category_name: {category_name}. Shape: {filtered_df.shape}")
+            #logger.debug(f"Filtered by category_name: {category_name}. Shape: {filtered_df.shape}")
         if components:
             filtered_df = filtered_df[filtered_df["CF_Components"].str.lower() == components.lower()]
-            logger.debug(f"Filtered by components: {components}. Shape: {filtered_df.shape}")
+            #logger.debug(f"Filtered by components: {components}. Shape: {filtered_df.shape}")
         if work:
             filtered_df = filtered_df[filtered_df["CF_Work"].str.lower() == work.lower()]
-            logger.debug(f"Filtered by work: {work}. Shape: {filtered_df.shape}")
+            #logger.debug(f"Filtered by work: {work}. Shape: {filtered_df.shape}")
         if finish:
             filtered_df = filtered_df[filtered_df["CF_Finish"].str.lower() == finish.lower()]
-            logger.debug(f"Filtered by finish: {finish}. Shape: {filtered_df.shape}")
+            #logger.debug(f"Filtered by finish: {finish}. Shape: {filtered_df.shape}")
         if finding:
             filtered_df = filtered_df[filtered_df["CF_Finding"].str.lower() == finding.lower()]
-            logger.debug(f"Filtered by finding: {finding}. Shape: {filtered_df.shape}")
+            #logger.debug(f"Filtered by finding: {finding}. Shape: {filtered_df.shape}")
         return filtered_df
     except Exception as e:
         logger.error(f"Error in filter_existing_products: {e}")
@@ -67,16 +67,16 @@ def filter_existing_products(df, category_name=None, components=None, work=None,
 
 def process_excel(file):
     try:
-        logger.debug(f"Entering process_excel with file: {file}")
+        #logger.debug(f"Entering process_excel with file: {file}")
         workbook = xlrd.open_workbook(file, ignore_workbook_corruption=True)
         df = pd.read_excel(workbook, header=6)
-        logger.debug(f"Excel DataFrame shape: {df.shape}")
+        #logger.debug(f"Excel DataFrame shape: {df.shape}")
         df.columns = ['Row Number', 'Image', 'Inventory Number', 'UPI', 'Color', 'Size', 'Price',
                       'Quantity', 'Total Price']
         df.to_csv('order_prod.csv')
         required_columns = ["Row Number", "UPI", "Quantity", "Price"]
         if set(required_columns).issubset(df.columns):
-            logger.debug("Required columns found in Excel file.")
+            #logger.debug("Required columns found in Excel file.")
             return df[required_columns]
         else:
             logger.error("Required columns are missing in Excel file.")
@@ -89,7 +89,7 @@ def process_excel(file):
 
 def generate_csv_template():
     try:
-        logger.debug("Entering generate_csv_template")
+        #logger.debug("Entering generate_csv_template")
         template_df = pd.DataFrame({
             "Vendor Code(*)": [""],
             "Color(*)": [""],
@@ -107,7 +107,7 @@ def generate_csv_template():
         buffer = io.BytesIO()
         template_df.to_csv(buffer, index=False)
         buffer.seek(0)
-        logger.debug("Generated CSV template successfully.")
+        #logger.debug("Generated CSV template successfully.")
         return buffer
     except Exception as e:
         logger.error(f"Error in generate_csv_template: {e}")
@@ -116,8 +116,8 @@ def generate_csv_template():
 
 def download_zakya_items_group_csv_template(df):
     try:
-        logger.debug("Entering download_zakya_items_group_csv_template")
-        logger.debug(f"Input DataFrame shape: {df.shape}")
+        #logger.debug("Entering download_zakya_items_group_csv_template")
+        #logger.debug(f"Input DataFrame shape: {df.shape}")
         unit_list = []
         product_name_list = []
         AttributeOption1_list = []
@@ -153,7 +153,7 @@ def download_zakya_items_group_csv_template(df):
         df["Product Name"] = product_name_list
         df["AttributeOption1"] = AttributeOption1_list
         df["AttributeOption2"] = AttributeOption2_list
-        logger.debug("Populated additional columns for Zakya items group.")
+        #logger.debug("Populated additional columns for Zakya items group.")
         df.rename(columns={'VendorCode': 'Vendor Code', 'AllowBackDoor': 'Allow Backorder'}, inplace=True)
         df = df[[
             "Product Name", "Unit", "Brand", "AttributeName1", "AttributeName2", "AttributeName3", "Item Type",
@@ -162,7 +162,7 @@ def download_zakya_items_group_csv_template(df):
             "Intra State Tax Type", "Inter State Tax Name", "Inter State Tax Rate", "Inter State Tax Type",
             "Category", "Collection", "Allow Backorder", "Gender", "Vendor Code", "Cost", "Lines"
         ]]
-        logger.debug(f"Final DataFrame shape for Zakya items group: {df.shape}")
+        #logger.debug(f"Final DataFrame shape for Zakya items group: {df.shape}")
         return df
     except Exception as e:
         logger.error(f"Error in download_zakya_items_group_csv_template: {e}")
@@ -179,8 +179,8 @@ def create_sku(df):
         pd.DataFrame: Updated DataFrame with generated SKUs and processed data.
     """
     try:
-        logger.debug("Entering create_sku")
-        logger.debug(f"Input DataFrame shape: {df.shape}")
+        #logger.debug("Entering create_sku")
+        #logger.debug(f"Input DataFrame shape: {df.shape}")
 
         # Define a mapping for Category_Name to SKU block suffix
         category_map = {
@@ -191,14 +191,14 @@ def create_sku(df):
 
         # Initialize a serial tracker for each SKU block
         serial_trackers = {'B': 0, 'E': 0, 'R': 0, 'X': 0}
-        logger.debug("Initialized serial trackers for SKU blocks.")
+        #logger.debug("Initialized serial trackers for SKU blocks.")
 
         # Load product master and extract existing SKUs
         product_master_df = load_and_rename_master()
         existing_skus = product_master_df['SKU'].dropna().astype(str)
 
-        logger.debug(f"Loaded product master with shape: {product_master_df.shape}")
-        logger.debug(f"Extracted {len(existing_skus)} existing SKUs for processing.")
+        #logger.debug(f"Loaded product master with shape: {product_master_df.shape}")
+        #logger.debug(f"Extracted {len(existing_skus)} existing SKUs for processing.")
 
         # Update serial trackers based on existing SKUs
         for sku in existing_skus:
@@ -207,7 +207,7 @@ def create_sku(df):
                 suffix = match.group(1)
                 serial_number = int(match.group(2))
                 serial_trackers[suffix] = max(serial_trackers[suffix], serial_number)
-        logger.debug(f"Updated serial trackers: {serial_trackers}")
+        #logger.debug(f"Updated serial trackers: {serial_trackers}")
 
         vendor_code_dict = {}
         new_skus = []
@@ -240,22 +240,22 @@ def create_sku(df):
                         new_sku += f"/{variant_sub_str}"
                     new_skus.append(new_sku)
                     vendor_code_dict[currentVendorCode] = new_sku
-                    logger.debug(f"Generated new SKU: {new_sku} for VendorCode: {currentVendorCode}")
+                    #logger.debug(f"Generated new SKU: {new_sku} for VendorCode: {currentVendorCode}")
                 elif pd.isnull(row['SKU']) and currentVendorCode in vendor_code_dict.keys():
                     parentSKU = vendor_code_dict[currentVendorCode].split("/")[0]
                     new_sku = f"{parentSKU}/{variant_sub_str}" if variant_sub_str else parentSKU
                     new_skus.append(new_sku)
-                    logger.debug(f"Appended variant to existing SKU: {new_sku} for VendorCode: {currentVendorCode}")
+                    #logger.debug(f"Appended variant to existing SKU: {new_sku} for VendorCode: {currentVendorCode}")
 
             except Exception as e:
                 logger.error(f"Error processing row {index}: {e}")
 
         df['SKU'] = new_skus
-        logger.debug(f"Generated {len(new_skus)} new SKUs.")
+        #logger.debug(f"Generated {len(new_skus)} new SKUs.")
 
         # Call download_zakya_items_group_csv_template for further processing
         updated_df = download_zakya_items_group_csv_template(df)
-        logger.debug(f"Updated DataFrame shape after SKU generation: {updated_df.shape}")
+        #logger.debug(f"Updated DataFrame shape after SKU generation: {updated_df.shape}")
         return updated_df
 
     except Exception as e:
@@ -356,16 +356,16 @@ def map_existing_products(df):
         pd.DataFrame: Updated DataFrame with SKUs mapped for existing products.
     """
     try:
-        logger.debug("Entering map_existing_products")
-        logger.debug(f"Input DataFrame shape: {df.shape}")
+        #logger.debug("Entering map_existing_products")
+        #logger.debug(f"Input DataFrame shape: {df.shape}")
 
         # Load master_output.xlsx
         master_df = crud.read_table("vendor_sku_mapping")
-        logger.debug(f"Loaded master DataFrame with shape: {master_df.shape}")
+        #logger.debug(f"Loaded master DataFrame with shape: {master_df.shape}")
 
         # Exclude rows with null SKUs in master DataFrame
         master_df = master_df[master_df['SKU'].notnull()]
-        logger.debug(f"Filtered master DataFrame shape (non-null SKU): {master_df.shape}")
+        #logger.debug(f"Filtered master DataFrame shape (non-null SKU): {master_df.shape}")
 
         # Process VendorCode
         master_df['Processed_Vendor_Code'] = master_df['Vendor Code'].str.split(" ").str[0]
@@ -377,7 +377,7 @@ def map_existing_products(df):
             on='Processed_Vendor_Code',
             how='inner'
         )
-        logger.debug(f"Merged DataFrame shape: {merged_df.shape}")
+        #logger.debug(f"Merged DataFrame shape: {merged_df.shape}")
 
         # Update SKU in merged DataFrame
         merged_df['SKU'] = merged_df['SKU_y'].combine_first(merged_df['SKU_x'])
@@ -387,7 +387,7 @@ def map_existing_products(df):
 
         # Load product master for additional information
         product_master_df = load_and_rename_master()
-        logger.debug(f"Loaded product master DataFrame with shape: {product_master_df.shape}")
+        #logger.debug(f"Loaded product master DataFrame with shape: {product_master_df.shape}")
 
         # Merge with product master
         final_df = merged_df.merge(
@@ -395,7 +395,7 @@ def map_existing_products(df):
             on='SKU',
             how='inner'
         )
-        logger.debug(f"Final DataFrame shape after mapping existing products: {final_df.shape}")
+        #logger.debug(f"Final DataFrame shape after mapping existing products: {final_df.shape}")
 
         return final_df
     except Exception as e:
@@ -415,15 +415,15 @@ def aggregated_df(new_sku_df, existing_sku_df):
         pd.DataFrame: Aggregated DataFrame with calculated and static fields.
     """
     try:
-        logger.debug("Entering aggregated_df")
-        logger.debug(f"New SKU DataFrame shape: {new_sku_df.shape}")
-        logger.debug(f"Existing SKU DataFrame shape: {existing_sku_df.shape}")
+        #logger.debug("Entering aggregated_df")
+        #logger.debug(f"New SKU DataFrame shape: {new_sku_df.shape}")
+        #logger.debug(f"Existing SKU DataFrame shape: {existing_sku_df.shape}")
 
         # Filter out rows with null SKUs
         new_sku_df = new_sku_df[new_sku_df['SKU'].notnull()]
         existing_sku_df = existing_sku_df[existing_sku_df['SKU'].notnull()]
-        logger.debug(f"Filtered New SKU DataFrame shape: {new_sku_df.shape}")
-        logger.debug(f"Filtered Existing SKU DataFrame shape: {existing_sku_df.shape}")
+        #logger.debug(f"Filtered New SKU DataFrame shape: {new_sku_df.shape}")
+        #logger.debug(f"Filtered Existing SKU DataFrame shape: {existing_sku_df.shape}")
 
         # Create new purchase order DataFrame
         new_sku_df['Account'] = 'Inventory Asset'
@@ -436,7 +436,7 @@ def aggregated_df(new_sku_df, existing_sku_df):
             lambda x: 'pairs' if 'earring' in str(x).lower() or 'kada' in str(x).lower() else 'pcs'
         )
         new_sku_df['Total'] = new_sku_df['Item Total'].sum()
-        logger.debug("Processed New SKU DataFrame with static and calculated fields.")
+        #logger.debug("Processed New SKU DataFrame with static and calculated fields.")
 
         # Create existing purchase order DataFrame
         existing_sku_df['Account'] = 'Inventory Asset'
@@ -448,11 +448,11 @@ def aggregated_df(new_sku_df, existing_sku_df):
             lambda x: 'pairs' if 'earring' in str(x).lower() or 'kada' in str(x).lower() else 'pcs'
         )
         existing_sku_df['Total'] = existing_sku_df['Item Total'].sum()
-        logger.debug("Processed Existing SKU DataFrame with static and calculated fields.")
+        #logger.debug("Processed Existing SKU DataFrame with static and calculated fields.")
 
         # Combine the two DataFrames
         purchase_order_df = pd.concat([new_sku_df, existing_sku_df], ignore_index=True)
-        logger.debug(f"Final Aggregated DataFrame shape: {purchase_order_df.shape}")
+        #logger.debug(f"Final Aggregated DataFrame shape: {purchase_order_df.shape}")
 
         return purchase_order_df
     except Exception as e:
@@ -636,13 +636,14 @@ def create_whereclause_fetch_data(pydantic_model, filter_dict, query):
         whereClause=crud.build_where_clause(pydantic_model,filter_dict)
         formatted_query = query.format(whereClause=whereClause)
         data = crud.execute_query(query=formatted_query,return_data=True)
-        logger.debug(f"query is {formatted_query} and data is {data}")
+        #logger.debug(f"query is {formatted_query} and data is {data}")
         return data.to_dict('records')
     except Exception as e:
         return {"error": f"Error fetching row: {e}"}
 
 
 def fetch_customer_name_list(is_aza=False):
+    logger.debug(f"is Aza filter is {is_aza}")
     customer_df = load_customer_data(is_aza)
     return customer_df["contact_name"].unique()
 
@@ -677,7 +678,7 @@ def preprocess_taj_sales_report(taj_sales_df):
     for _, row in taj_sales_df.iterrows():
         style = row.get("Style", "").strip().split("/")[0]
         salesorder_number = row.get("PartyDoc No", "").split(" ")[-1]
-        logger.debug(f"sku is {style} and sales order number is {salesorder_number}")
+        #logger.debug(f"sku is {style} and sales order number is {salesorder_number}")
         
         items_data = find_missing_products(style)
         salesorder_data = find_missing_salesorder(salesorder_number)
@@ -692,10 +693,10 @@ def preprocess_taj_sales_report(taj_sales_df):
         else:
             missing_sales_orders.append(salesorder_number)    
 
-    logger.debug(f"missing_products is {missing_products}")
-    logger.debug(f"existing_products is {existing_products}")
-    logger.debug(f"existing_sales_orders is {existing_sales_orders}")
-    logger.debug(f"missing_sales_orders is {missing_sales_orders}")
+    #logger.debug(f"missing_products is {missing_products}")
+    #logger.debug(f"existing_products is {existing_products}")
+    #logger.debug(f"existing_sales_orders is {existing_sales_orders}")
+    #logger.debug(f"missing_sales_orders is {missing_sales_orders}")
 
 def process_taj_sales(taj_sales_df,invoice_date,zakya_connection_object):
 
@@ -751,8 +752,8 @@ def process_taj_sales(taj_sales_df,invoice_date,zakya_connection_object):
 
     #     if len(salesorder_data)>0 and len(items_data)>0:
 
-    #         logger.debug(f'salesorder data is : {salesorder_data}')
-    #         logger.debug(f'items data is : {items_data}')
+    #         #logger.debug(f'salesorder data is : {salesorder_data}')
+    #         #logger.debug(f'items data is : {items_data}')
 
     #         # print(f'salesorder data is : {salesorder_data}')
     #         # print(f'items data is : {items_data}')
@@ -760,9 +761,9 @@ def process_taj_sales(taj_sales_df,invoice_date,zakya_connection_object):
     #         item_id = items_data[0]['item_id']
     #         salesorder_id = salesorder_data[0]['salesorder_id']
 
-    #         logger.debug(f"Customer Data is {customer_data}")
-    #         logger.debug(f"Items/Product data is : {items_data[0]}")
-    #         logger.debug(f"Customer data is : {customer_data[0]}")
+    #         #logger.debug(f"Customer Data is {customer_data}")
+    #         #logger.debug(f"Items/Product data is : {items_data[0]}")
+    #         #logger.debug(f"Customer data is : {customer_data[0]}")
 
     #         # print(f"Customer Data is {customer_data}")
     #         # print(f"Items/Product data is : {items_data[0]}")
@@ -844,7 +845,7 @@ def process_taj_sales(taj_sales_df,invoice_date,zakya_connection_object):
     #         "Item Type": "goods",
     #     })
 
-    #     logger.debug(f"For the row : {row} the invoice list is {invoice_data}")
+    #     #logger.debug(f"For the row : {row} the invoice list is {invoice_data}")
 
     # # Create a DataFrame for the final invoice
     # invoice_df = pd.DataFrame(invoice_data)
