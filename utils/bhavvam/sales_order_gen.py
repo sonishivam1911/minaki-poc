@@ -231,6 +231,22 @@ def process_sales_order(fields, customer_name, zakya_config):
         "date": format_date_for_api(fields["PO Date"]),
         "shipment_date": format_date_for_api(fields["PO Delivery Date"]),
         "reference_number": reference_number,
+        "custom_fields": [
+                    {
+                        "index": 1,
+                        "label": "Status",
+                        "api_name": "cf_status",
+                        "placeholder": "cf_status",
+                        "value": "Created"
+                    },
+                    {
+                        "index": 2,
+                        "label": "Order Type",
+                        "api_name": "cf_order_type",
+                        "placeholder": "cf_order_type",
+                        "value": 'eCommerce Order'
+                    }
+                ],
         "line_items": [
             {
                 "item_id": int(item_id) if item_id else '',
