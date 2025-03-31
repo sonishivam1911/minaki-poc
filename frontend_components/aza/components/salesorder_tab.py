@@ -18,14 +18,14 @@ def aza_sales_orders_tab():
         st.info("No Aza orders loaded. Please upload an Aza sales file first.")
         return
     
-    # st.info(f"Mappend proucts are : {st.session_state.get('aza_mapped_products')}")
+    st.info(f"Mapped proucts are : {st.session_state.get('aza_mapped_products')}")
     
     # Check if product mapping analysis has been done
     if st.session_state.get('aza_mapped_products') is None and st.session_state.get('aza_unmapped_products') is None:
         st.warning("Please click 'Analyze Product Mapping' in the Aza Orders section first.")
         return
     
-    # st.info(f"aza_sales_orders are : {st.session_state.get('aza_sales_orders')}")
+    st.info(f"aza_sales_orders are : {st.session_state.get('aza_sales_orders')}")
     
     # Fetch sales orders if not already done
     if st.session_state.get('aza_sales_orders') is None:
@@ -39,7 +39,7 @@ def aza_sales_orders_tab():
                     st.error("Customer ID not found. Please select a customer first.")
                     return
                 
-                #logger.debug(f"Config being passed to function is : {zakya_connection}")
+                logger.debug(f"Config being passed to function is : {zakya_connection}")
                 # Prepare config for API call
                 config = {
                     'base_url': zakya_connection.get('base_url'),
@@ -50,10 +50,14 @@ def aza_sales_orders_tab():
                     'aza_orders' : st.session_state['aza_orders']
                 }
 
-                #logger.debug(f"Config being passed to function is : {config}")
+                logger.debug(f"Config being passed to function is : {config}")
                 
                 # Fetch sales orders
                 sales_orders = fetch_aza_salesorders_by_customer_service(config)
+
+                with st.container():
+                    st.subheader("Sales order mapping")
+                    st.dataframe(sales_orders,use_container_width=True)
                 
                 # Fetch inventory data separately for all mapped products
                 inventory_data = fetch_aza_inventory_data(
