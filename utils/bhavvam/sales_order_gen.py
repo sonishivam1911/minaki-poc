@@ -1,5 +1,8 @@
 
 import pdfplumber
+import requests
+import tempfile
+import os 
 from datetime import datetime
 import fitz  # PyMuPDF
 import re
@@ -254,31 +257,147 @@ def process_sales_order(fields, customer_name, zakya_config):
     )    
 
 
-# pdf_path = "po.pdf"
-# po_data = pdf_extract__po_details_ppus(pdf_path)
-# print(json.dumps(po_data, indent=4))
-# po = po_data["PO No"]
-# os = po_data["Order Source"]
-# po_item_id = ""
-# ppus_code  = po_data["SKU Code"]
-# sales_order_data = {
-#     "customer_id": 1923531000000170000,
-#     "salesorder_number": po,
-#     "date": po_data["PO Date"],
-#     "shipment_date": po_data["PO Delivery Date"],
-#     "reference_number": po,
-#     "line_items": [
-#         {
-#             "item_id": po_item_id,
-#             "description": f"PO: {po} and PPUS Code: {ppus_code}",
-#             "rate": po_data["Unit Price"],
-#             "quantity": po_data["Quantity"],
-#             "item_total": po_data["Total"]
-#         }
-#     ],
-#     "notes": f"Order Source : {os}",
-#     "terms": "Terms and Conditions"
-# }
+def download_pdf_from_link(url):
+    """
+    Downloads a PDF from a given URL and saves it to a temporary file.
+    
+    Args:
+        url (str): The URL of the PDF to download.
+        
+    Returns:
+        str: Path to the temporary file containing the downloaded PDF.
+        
+    Raises:
+        Exception: If download fails or URL is invalid.
+    """
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()  # Raise exception for HTTP errors
+        
+        # Create a temporary file to store the PDF
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+            temp_file.write(response.content)
+            return temp_file.name
+    except Exception as e:
+        raise Exception(f"Failed to download PDF from {url}: {str(e)}")
 
-# # Process the sales order
-# process_sales_order(sales_order_data)
+
+def get_customer_name_from_vendor(vendor):
+    """
+    Maps vendor code to customer name for Zakya.
+    
+    Args:
+        vendor (str): The vendor name ('PPUS' or 'AZA').
+        
+    Returns:
+        str: The corresponding customer name in Zakya.
+    """
+    if vendor == "PPUS":
+        return "Pernia Delhi"
+    elif vendor == "AZA":
+        return "Aza Delhi"
+    else:
+        raise ValueError(f"Unknown vendor: {vendor}")
+
+
+def process_single_po_link(po_link, vendor, zakya_config):
+    """
+    Processes a single PO link from the CSV.
+    
+    Args:
+        po_link (str): URL to the PDF purchase order.
+        vendor (str): The vendor name ('PPUS' or 'AZA').
+        zakya_config (dict): Configuration for Zakya API.
+        
+    Returns:
+        dict: Result of processing this specific PO.
+    """
+    temp_path = None
+    try:
+        # Download the PDF
+        temp_path = download_pdf_from_link(po_link)
+        
+        # Extract data using existing functions based on vendor
+        if vendor == "PPUS":
+            result = pdf_extract__po_details_ppus(temp_path)
+        else:  # AZA
+            result = pdf_extract__po_details_aza(temp_path)
+        
+        # Get customer name
+        customer_name = get_customer_name_from_vendor(vendor)
+        
+        # Process the sales order using existing function
+        process_sales_order(result, customer_name, zakya_config)
+        
+        return {
+            "status": "success",
+            "po_number": result.get("PO No"),
+            "link": po_link
+        }
+        
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error": str(e),
+            "link": po_link
+        }
+    finally:
+        # Clean up the temporary file
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+
+
+def process_csv_file(csv_file, vendor, zakya_config):
+    """
+    Processes a CSV file containing PO links for a specific vendor.
+    
+    Args:
+        csv_file: The uploaded CSV file object.
+        vendor (str): The vendor name ('PPUS' or 'AZA').
+        zakya_config (dict): Configuration for Zakya API.
+        
+    Returns:
+        dict: Processing results with statistics and details.
+    """
+    try:
+        # Read the CSV file
+        df = pd.read_csv(csv_file)
+        
+        # Check if the required column exists
+        if 'PO link' not in df.columns:
+            return {"error": "CSV file must contain a 'PO link' column"}
+        
+        results = {
+            "total": len(df),
+            "processed": 0,
+            "failed": 0,
+            "details": []
+        }
+        
+        # Process each PO link
+        for index, row in df.iterrows():
+            po_link = row['PO link']
+            
+            # Skip empty links
+            if not po_link or pd.isna(po_link):
+                continue
+                
+            # Process the single PO
+            result = process_single_po_link(po_link, vendor, zakya_config)
+            
+            # Update statistics
+            if result["status"] == "success":
+                results["processed"] += 1
+            else:
+                results["failed"] += 1
+                
+            # Add to details
+            results["details"].append(result)
+            
+        return results
+        
+    except Exception as e:
+        return {"error": f"Failed to process CSV: {str(e)}"}

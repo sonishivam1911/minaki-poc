@@ -228,6 +228,43 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 'error': str(e)
             }
 
+
+
+    def extract_po_from_reference(self,ref_string):
+        """
+        Extract PO value from reference string with improved type handling.
+        
+        Args:
+            ref_string: The reference string to extract PO from
+            
+        Returns:
+            str or None: Extracted PO value or None if not found
+        """
+        # First ensure we have a string to work with
+        if ref_string is None:
+            return None
+            
+        # Convert to string if not already a string
+        if not isinstance(ref_string, str):
+            try:
+                ref_string = str(ref_string).strip()
+            except:
+                return None
+        else:
+            ref_string = ref_string.strip()
+        
+        # Return None for empty strings
+        if not ref_string:
+            return None
+        
+        # Check if the reference starts with "PO" using various formats
+        if ref_string.upper().startswith("PO"):
+            # Handle various formats: "PO:", "PO-", "PO ", etc.
+            # logger.debug(f"ref_string is : {ref_string.split(':')[-1].strip()}")
+            return ref_string.split(':')[-1].strip()
+        
+        return None
+
     async def find_existing_aza_salesorders(self, customer_id,include_inventory=True):
         """
         Fetch and analyze existing sales orders for Aza products.
@@ -249,16 +286,47 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             )
             
             # Get sales order line item mapping from the database
-            salesorder_item_mapping_df = crud.read_table('zakya_salesorder_line_item_mapping')
+            salesorder_item_mapping_df = crud.read_table('salesorder_line_item_mapping')
             
             # Extract sales orders from the response
             all_orders = extract_record_list(sales_orders_data, "salesorders")
             
             # Convert to DataFrame for easier filtering
             sales_orders_df = pd.DataFrame(all_orders)
-            
+
+            # Extract PO values from reference numbers early in the process
+            # Process reference numbers to extract PO values
+            if 'reference_number' in sales_orders_df.columns:
+                # logger.debug(f"Processing reference numbers. Sample types: {sales_orders_df['reference_number'].apply(type).value_counts()}")
+                sales_orders_df['extracted_po'] = sales_orders_df['reference_number'].apply(self.extract_po_from_reference)
+                # logger.debug(f"Extracted POs: {set(sales_orders_df['extracted_po'])}")
+
+            # Ensure 'PO No.' column exists in aza order that is self.sales_orders
+            if 'PO No.' in self.sales_df.columns:
+                logger.debug(f"POs column is  : {self.sales_df.columns}")
+                # Check for type consistency in PO Number column
+                if not self.sales_df['PO No.'].empty:
+                    logger.debug(f"Aza PO Number types: {self.sales_df['PO No.'].apply(type).value_counts()}")
+                    
+                    # Convert PO Number to string for consistency
+                    self.sales_df['PO No.'] = self.sales_df['PO No.'].apply(
+                        lambda x: str(x).strip() if pd.notna(x) else None
+                    )
+                
+
+            # Join sales orders with aza orders based on matching PO numbers
+            mapped_sales_order_with_product_df = pd.merge(
+                left=sales_orders_df,
+                right=self.sales_df,
+                how='right',  # Only include matches
+                left_on=['extracted_po'],
+                right_on=['PO No.']
+            )
+
+            logger.debug(f"Mapped Sales Order is : {mapped_sales_order_with_product_df}")
             # Filter to only include the selected customer
-            sales_orders_df = sales_orders_df[sales_orders_df['customer_id'] == customer_id]
+            mapped_sales_order_with_product_df = mapped_sales_order_with_product_df[mapped_sales_order_with_product_df['customer_id'] == customer_id]
+
             start_date = self.invoice_date
 
             date_45_days_before = start_date - timedelta(days=60)
@@ -268,14 +336,16 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             date_45_days_before_str = date_45_days_before.strftime('%Y-%m-%d')
             
             # Filter sales orders to only include those between 45 days before start_date and start_date
-            sales_orders_df = sales_orders_df[
-                (sales_orders_df['date'] >= date_45_days_before_str) & 
-                (sales_orders_df['date'] <= start_date_str)
+            mapped_sales_order_with_product_df = mapped_sales_order_with_product_df[
+                (mapped_sales_order_with_product_df['date'] >= date_45_days_before_str) & 
+                (mapped_sales_order_with_product_df['date'] <= start_date_str)
             ]            
+
+            logger.debug(f"Mapped Sales Order after date filtering : {mapped_sales_order_with_product_df}")
             
             # Join with the salesorder_item_mapping to get item details
             sales_orders_df = pd.merge(
-                left=sales_orders_df, 
+                left=mapped_sales_order_with_product_df, 
                 right=salesorder_item_mapping_df,
                 how='left', 
                 on=['salesorder_id']
@@ -291,11 +361,12 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             if not mapped_products_df.empty:
                 # Filter to only include Aza items
                 mapped_sales_order_with_product_df = pd.merge(
-                    left=sales_orders_df, 
+                    left=mapped_sales_order_with_product_df, 
                     right=mapped_products_df,
                     how='inner',  # Only include matches
                     on=['item_id']
                 )
+                logger.debug(f"Mapped Sales Order after merging with products df : {mapped_sales_order_with_product_df}")
             else:
                 mapped_sales_order_with_product_df = sales_orders_df
             
@@ -335,6 +406,21 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 # Function to check if an item is invoiced using reference numbers and database tables
                 def check_if_invoiced(row):
                     row_id = row.name  # Use DataFrame index as unique identifier
+                    
+                    # Method 1: Check reference number against PO Number in pernia_orders
+                    if 'extracted_po' in row and not pd.isna(row['extracted_po']) and self.sales_df is not None:
+                        extracted_po = row['extracted_po']
+                        
+                        # Check if this extracted PO number matches any PO Number in pernia_orders
+                        if 'PO No.' in self.sales_df.columns:
+                            matching_po = self.sales_df[
+                                self.sales_df['PO No.'] == extracted_po
+                            ]
+                            
+                            if not matching_po.empty:
+                                # Found a matching PO Number
+                                mapped_salesorder_dict[row_id] = row.get('salesorder_id', '')
+                                return f"Invoiced (PO: {extracted_po})"                    
                                         
                     # Method 2: Check using database tables
                     if not salesorder_invoice_mapping_df.empty and not invoice_item_mapping_df.empty and 'item_id' in row and not pd.isna(row['item_id']) and 'salesorder_id' in row and not pd.isna(row['salesorder_id']):
@@ -364,7 +450,7 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                                         matching_items = matching_items.sort_values('line_item_id').head(1)
                                     
                                     mapped_salesorder_dict[row_id] = sales_order_id
-                                    return f"Invoiced ({invoice_number})"
+                                    return f"Invoiced (INV : {invoice_number})"
                     
                     # No invoice found through either method
                     if 'item_id' in row and not pd.isna(row['item_id']) and 'salesorder_id' in row and not pd.isna(row['salesorder_id']):
@@ -411,22 +497,26 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             # Format the final DataFrame
             if not mapped_sales_order_with_product_df.empty:
                 # Group by salesorder, item name, and date, then calculate aggregates
+                logger.debug(f"Columns being mapped are : {mapped_sales_order_with_product_df.columns}")
                 grouped_df = mapped_sales_order_with_product_df.groupby(
-                    ['salesorder_number_x', 'item_name', 'date', 'item_id', 'Invoice Status']
+                    ['salesorder_number_x', 'name', 'date_x', 'item_id', 'Invoice Status', 'Mapped Salesorder ID', 'extracted_po']
                 ).agg({
                     'quantity_y': 'sum',
+                    'quantity_invoiced_y' : 'sum',
                     'rate': 'mean',
-                    'amount': 'sum'
+                    'total_x': 'sum'
                 }).reset_index()
                 
                 # Rename columns for clarity
                 renamed_df = grouped_df.rename(columns={
                     'salesorder_number_x': 'Order Number',
-                    'item_name': 'Item Name',
-                    'date': 'Order Date',
-                    'quantity': 'Total Quantity',
+                    'name': 'Item Name',
+                    'date_x': 'Order Date',
+                    'quantity_y': 'Total Quantity',
+                    'quantity_invoiced_y': 'Quantity Invoiced',
                     'rate': 'Average Rate',
-                    'amount': 'Total Amount'
+                    'total_x': 'Total Amount',
+                    'extracted_po' : 'Mapped POs',
                 })
                 
                 # Add inventory columns if they exist

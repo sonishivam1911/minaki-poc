@@ -72,10 +72,10 @@ def fetch_aza_salesorders_by_customer_service(config):
     Returns:
         DataFrame: Sales orders with enhanced data
     """
-    #logger.debug(f'Config is : {config}')
+    logger.debug(f'Config is : {config}')
     # Create a processor instance
     if 'aza_orders' in config:
-        #logger.debug('fetch_aza_salesorders_by_customer_service is called')
+        logger.debug('fetch_aza_salesorders_by_customer_service is called')
         processor = AzaInvoiceProcessor(
             config['aza_orders'], 
             datetime.now(),
