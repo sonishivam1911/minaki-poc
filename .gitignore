@@ -1,7 +1,6 @@
 /venv/
 /uploaded_images/
 __pycache__/
-/server/file_management/service_account.json
 
 
 *.env
@@ -11,3 +10,4 @@ __pycache__/
 *.jpg
 *.json
 .qodo
+*.pdf
