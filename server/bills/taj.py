@@ -1,14 +1,22 @@
 import json
 import re
+import logging
 from datetime import datetime, timedelta
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
 def process_bills_taj(lines):
-    # Extract GSTIN (Generalized search)
+    logger.info("Starting bill processing...")
+    
+    # Extract GSTIN
     gstin = None
     for line in lines:
         match = re.search(r"GSTIN\s*[:/-]\s*([\w\d]+)", line)
         if match:
             gstin = match.group(1)
+            logger.info(f"Extracted GSTIN: {gstin}")
             break
 
     # Extract Bill Number & Store Code
@@ -18,8 +26,9 @@ def process_bills_taj(lines):
         if match:
             bill = match.group(1)
             store_code = bill.split("-")[1].split("/")[0] if "-" in bill else None
+            logger.info(f"Extracted Bill No: {bill}, Store Code: {store_code}")
             break
-
+    
     vendor_mapping = {
         'TMC': '1923531000003042024',
         'TPH': '1923531000002349593',
@@ -27,6 +36,10 @@ def process_bills_taj(lines):
         'TWR': '1923531000002349659'
     }
     vid = vendor_mapping.get(store_code)
+    if vid:
+        logger.info(f"Mapped Vendor ID: {vid}")
+    else:
+        logger.warning("Vendor ID not found for store code")
 
     # Extract Bill Date
     billdt = None
@@ -34,40 +47,46 @@ def process_bills_taj(lines):
         match = re.search(r"Invoice Date : (\d{2}/\d{2}/\d{4})", line)
         if match:
             billdt = datetime.strptime(match.group(1), "%d/%m/%Y").strftime("%Y-%m-%d")
+            logger.info(f"Extracted Bill Date: {billdt}")
             break
 
-    # Calculate Due Date (30 days after billdt)
+    # Calculate Due Date (30 days after bill date)
     billddt = None
     if billdt:
         billddt = (datetime.strptime(billdt, "%Y-%m-%d") + timedelta(days=30)).strftime("%Y-%m-%d")
-
-    # Extract Total Price (Last numeric value before discounts/taxes)
+        logger.info(f"Calculated Due Date: {billddt}")
+    
+    # Extract Total Price
     price = None
-    for i, line in enumerate(lines):
-        if "Grand Total" in line:
-            price = re.sub(r",", "", line.split()[-1])
+    for line in lines:
+        if "Bill Amount Including GST : " in line:
+            price = re.sub(r",", "", line.split('Bill Amount Including GST : ')[1].split()[0])
             try:
-                price = float(price)
+                price = float(price)/1.18
+                logger.info(f"Extracted Total Price: {price}")
             except ValueError:
+                logger.error("Failed to extract Total Price")
                 price = None
             break
-
-    # Extract Description (Generalized)
+    
+    # Extract Description
     desc_lines = []
     capture_desc = False
     for line in lines:
         if re.search(r"Lice|Licence Fee|Rent", line, re.IGNORECASE):
             capture_desc = True
-        if "CJE" in line:  # Stop at this identifier
+        if "CJE" in line:
             break
         if capture_desc:
             desc_lines.append(line)
     
     desc = " ".join(desc_lines).strip() if desc_lines else "Licence Fee"
-
+    logger.info(f"Extracted Description: {desc}")
+    
     # Assign Tax ID based on GSTIN
     taxid = "1923531000000027522" if store_code == "TPH" else "1923531000000027456"
-
+    logger.info(f"Assigned Tax ID: {taxid}")
+    
     # Construct Payload
     payload = {
         "vendor_id": vid,
@@ -90,18 +109,6 @@ def process_bills_taj(lines):
         ],
         "gst_treatment": "business_gst"
     }
-
+    
+    logger.info("Bill processing completed successfully.")
     return payload
-
-# Example Usage
-# sample_lines = [
-#     "GSTIN : 07ABJFM2026Q1ZW",
-#     "Invoice No. : TMC-1234/25",
-#     "Invoice Date : 04/03/2025",
-#     "SNo Description of Goods HSN/SAC Qty. Unit Price Amount",
-#     "1. Sample Item 996211 2 Pcs 100.00 200.00",
-#     "Grand Total 2 Pcs 7,990.00",
-# ]
-
-# payload = process_bills_taj(sample_lines)
-# print(json.dumps(payload, indent=4))

@@ -5,11 +5,15 @@ import os
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from utils.zakya_api import fetch_object_for_each_id
+from utils.zakya_api import fetch_object_for_each_id, put_record_to_zakya
 from server.bills.dial import process_bills_dial, process_bills
 from server.bills.pkj import process_bills_pkj
 from server.bills.taj import process_bills_taj
 from server.bills.shiprocket import process_bills_sr
+from server.bills.np import process_bills_np
+from server.bills.aza_opc import process_bills_aza_opc
+from server.bills.zakya import process_bills_zakya
+# from server.file_management.main_file_management import upload_to_drive
 
 # Configure logging (Set to WARNING to suppress unnecessary logs)
 logging.basicConfig(level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -56,6 +60,15 @@ async def process_pdf(temp_path):
             elif line.startswith("Shiprocket Private Limited"):
                 result = process_bills_sr(lines)
                 break
+            elif line.startswith("N.P. JEWELLERS"):
+                result = process_bills_np(lines)
+                break
+            elif line.startswith("Aza Fashions"):
+                result = process_bills_aza_opc(lines)
+                break
+            elif line.startswith("ZOHO Corporation Private Limited"):
+                result = process_bills_zakya(lines)
+                break
 
         if not result:
             logger.warning(f"Unknown bill format: {temp_path}")
@@ -73,7 +86,24 @@ async def process_pdf(temp_path):
         )
 
         logger.info(f"✅ Successfully processed: {temp_path}")
-        return bill_data
+        billid = bill_data["bill"]["bill_id"]
+        serial_number = bill_data["bill"]["bill_number"]
+        function_date = bill_data["bill"]["date"]
+        # link = upload_to_drive(temp_path, 'bill', serial_number, function_date)
+        # payload = {
+        #     "custom_fields": [
+        #             {
+        #                 "api_name": "cf_bills_drive_link",
+        #                 "placeholder": "cf_bills_drive_link",
+        #                 "value": link
+        #             }
+        #         ]
+        # }
+        # addlink = put_record_to_zakya(st.session_state.get('api_domain', ''), 
+        #                               st.session_state.get('access_token', ''), 
+        #                               st.session_state.get('organization_id', ''), 
+        #                               'bills', billid, payload)
+        return bill_data['bill']
 
     except Exception as e:
         logger.error(f"❌ Error processing {temp_path}: {str(e)}")

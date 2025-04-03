@@ -238,6 +238,7 @@ def post_record_to_zakya(base_url, access_token, organization_id, endpoint, payl
     )
     print(response.text)
     response.raise_for_status()  # Raise an error for bad responses
+    # print(response.text)
     return response.json() 
 
 def attach_zakya(base_url, access_token, organization_id, endpoint, pdf_path):

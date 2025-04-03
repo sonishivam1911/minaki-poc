@@ -1,9 +1,11 @@
 import streamlit as st
 import datetime
 import pandas as pd
+import datetime
+import time
 from utils.postgres_connector import crud
 from config.logger import logger
-from utils.zakya_api import fetch_object_for_each_id, post_record_to_zakya
+from utils.zakya_api import fetch_object_for_each_id, post_record_to_zakya, fetch_records_from_zakya
 from core.helper_zakya import fetch_records_from_zakya_in_df_format
 from utils.bhavvam.shiprocket import (shiprocket_auth
                                       ,check_service
@@ -98,18 +100,73 @@ def create_shiprocket_sr_forward(config):
     # zakya_shipment_result = create_zakya_shipment_order(shiprocket_forward_order,extra_args)
     return shiprocket_forward_order, None, None, {'status' : status, 'message' : message}
 
-def create_packages_on_zakya(sales_order_item_detail, shiprocket_forward_order):
+
+def create_packages_on_zakya(sales_order_item_detail):
+    # Prepare line items
+    line_items = []
+    for obj in sales_order_item_detail['salesorder']['line_items']:
+        item_id = obj['item_id']  # Directly using item_id
+        quantity = obj['quantity']
+
+        # Fetch item details including stock availability
+        item_details = fetch_object_for_each_id(
+            st.session_state['api_domain'],
+            st.session_state['access_token'],
+            st.session_state['organization_id'],
+            f'/items/{item_id}')
+        
+        # Extract the correct warehouse stock
+        warehouses = item_details['item'].get('warehouses', [])
+        warehouse_stock = next(
+            (wh['warehouse_actual_available_for_sale_stock'] for wh in warehouses if wh['warehouse_id'] == "1923531000001452123"),
+            0  # Default to 0 if not found
+        )
+
+        # Check if available stock is sufficient
+        if warehouse_stock < quantity:
+            quantity_adjusted = quantity - warehouse_stock
+            inv_payload = {
+                "date": str(datetime.datetime.now().strftime("%Y-%m-%d")),
+                "reason": "Stock Retally",
+                "adjustment_type": "quantity",
+                "line_items": [
+                    {
+                        "item_id": item_id,
+                        "quantity_adjusted": quantity_adjusted
+                    }
+                ]
+            }
+
+            inventory_correction_response = post_record_to_zakya(
+                st.session_state['api_domain'],
+                st.session_state['access_token'],
+                st.session_state['organization_id'],
+                'inventoryadjustments',
+                inv_payload   
+            )
+
+            # Ensure inventory correction was successful before proceeding
+            if inventory_correction_response.status_code != 200:
+                raise ValueError(f"Inventory correction failed for item {item_id}")
+
+            # Wait briefly to allow inventory update to reflect
+            time.sleep(2)
+
+        # Append to line items for package creation
+        line_items.append({
+            'so_line_item_id': obj['line_item_id'],
+            'quantity': quantity
+        })
+
+    # Construct package payload
     package_payload = {
-        # "package_number" : f"{sales_order_item_detail['salesorder_number']} package for {sales_order_item_detail['customer_name']}",
-        "date" : str(datetime.datetime.now().strftime("%Y-%m-%d")),
-        "line_items" : [ {
-            'so_line_item_id' : obj['line_item_id'],
-            'quantity' : obj['quantity']
-        } for obj in sales_order_item_detail['line_items']],
-        "notes" : f"Shiprocket result - {shiprocket_forward_order}"
+        "date": str(datetime.datetime.now().strftime("%Y-%m-%d")),
+        "line_items": line_items,
+        "notes": "Shiprocket result "
     }
+
     extra_args = {
-        'salesorder_id' : sales_order_item_detail['salesorder_id']
+        'salesorder_id': sales_order_item_detail['salesorder']['salesorder_id']
     }
     ##logger.debug(f'payload for packages is : {package_payload}')
     zakya_packages_result = post_record_to_zakya(
@@ -122,6 +179,7 @@ def create_packages_on_zakya(sales_order_item_detail, shiprocket_forward_order):
     )
 
     return zakya_packages_result
+
 
 
 def create_zakya_shipment_order(shiprocket_result,extra_args):
@@ -154,9 +212,11 @@ def create_zakya_shipment_order(shiprocket_result,extra_args):
     # Create payload for Zakya API
     zakya_payload = {
         "date": assigned_date or current_date,
+        "shipment_number": payload.get('shipment_id', ""),
         "reference_number": payload.get('awb_code', ""),
         "delivery_method": payload.get('courier_name', ""),
         "tracking_number": payload.get('awb_code', ""),
+        "shipping_charge": st.session_state['shipping_rate'],
         "notes": f"Shiprocket Order ID: {payload.get('order_id', '')}, Channel Order: {payload.get('channel_order_id', '')}"
     }
     
