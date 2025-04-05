@@ -9,7 +9,7 @@ from config.logger import logger
 
 def customer_selection_section():
     """Create the customer selection section UI."""
-    st.subheader("1️⃣ Customer Selection")
+    st.subheader("Customer Selection")
     
     # Load customer data if not already loaded
     if st.session_state['customer_master_df'] is None:

@@ -214,9 +214,12 @@ def process_sales_orders(order_data, customer_id, zakya_config, options=None):
                 
                 #logger.debug(f"sku is {sku} & partner_sku : {partner_sku} & price : {price}")
                 # Create line item
+                store_code = None
+                taxid = "1923531000000027522" if store_code == "TPH" else "1923531000000027456"
                 line_item = {
                     "description": f"PO: {ref_number_str} and {description} - {partner_sku}",
                     "rate": price,
+                    "tax_id": taxid,
                     "quantity": opts['quantity_value'],
                     "item_total": price * opts['quantity_value']
                 }

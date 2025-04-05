@@ -162,9 +162,7 @@ class PostgresCRUD:
 
         return insert_statements
         
-    def python_type_to_postgres(self, field) -> str:
-
-    
+    def python_type_to_postgres(self, field) -> str: 
         """
         Derive a Postgres column type from:
         1) custom field metadata (field.field_info.extra['pg_type']), or
