@@ -3,13 +3,15 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2 import service_account
 import os
 import zipfile
+import shutil
+import streamlit as st
 
 # Set up authentication
 SCOPES = ['https://www.googleapis.com/auth/drive']
-SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), "service_account.json")  # Ensure this is in the same directory
+service_account_info = st.secrets["gcp_service_account"]
 
-credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+credentials = service_account.Credentials.from_service_account_info(
+    service_account_info, scopes=SCOPES)
 drive_service = build('drive', 'v3', credentials=credentials)
 
 def get_or_create_folder(folder_name, parent_folder_id=None):
@@ -39,13 +41,6 @@ def get_or_create_folder(folder_name, parent_folder_id=None):
 def upload_product_photos(photo_paths, brand, category, sku, photo_type="inventory_photo"):
     """
     Uploads product photos to a structured Google Drive folder.
-
-    :param photo_paths: List of file paths to upload
-    :param brand: Brand name
-    :param category: Product category
-    :param sku: SKU identifier
-    :param photo_type: Either "inventory_photo" or "listing_photo"
-    :return: Dictionary with folder link and uploaded photo links
     """
     master_folder_id = get_or_create_folder("Intell")
     items_folder_id = get_or_create_folder("items", master_folder_id)
@@ -57,7 +52,7 @@ def upload_product_photos(photo_paths, brand, category, sku, photo_type="invento
     # Upload files and store their links
     photo_links = []
     for index, photo_path in enumerate(photo_paths, start=1):
-        file_name = f"{sku}_{index}.jpg"  # Example: SKU1234_1.jpg, SKU1234_2.jpg
+        file_name = f"{sku}_{index}.jpg"
         file_metadata = {
             'name': file_name,
             'parents': [sku_folder_id]
@@ -67,7 +62,7 @@ def upload_product_photos(photo_paths, brand, category, sku, photo_type="invento
             body=file_metadata, media_body=media, fields='id').execute()
 
         file_id = file.get('id')
-
+        
         # Make file shareable
         drive_service.permissions().create(
             fileId=file_id, body={'type': 'anyone', 'role': 'reader'}
@@ -87,13 +82,6 @@ def upload_product_photos(photo_paths, brand, category, sku, photo_type="invento
 def extract_zip_and_upload(zip_path, brand, category, sku, photo_type="inventory_photo"):
     """
     Extracts a ZIP file and uploads the extracted images to Google Drive.
-
-    :param zip_path: Path to the ZIP file.
-    :param brand: Brand name.
-    :param category: Product category.
-    :param sku: SKU identifier.
-    :param photo_type: Either "inventory_photo" or "listing_photo".
-    :return: Dictionary with folder link and uploaded photo links.
     """
     extracted_folder = f"temp_{sku}"
     
@@ -108,25 +96,6 @@ def extract_zip_and_upload(zip_path, brand, category, sku, photo_type="inventory
     result = upload_product_photos(photo_paths, brand, category, sku, photo_type)
 
     # Cleanup: Remove extracted files after upload
-    for file in photo_paths:
-        os.remove(file)
-    os.rmdir(extracted_folder)
-
+    shutil.rmtree(extracted_folder)  # Ensures complete removal
+    
     return result
-
-# # Example Usage for Multiple Image Upload
-# photo_paths = ["path/to/photo1.jpg", "path/to/photo2.jpg"]  # Local file paths
-# brand = "Minaki"
-# category = "Necklaces"
-# sku = "MNSK123"
-# photo_type = "inventory_photo"  # or "listing_photo"
-# 
-# result = upload_product_photos(photo_paths, brand, category, sku, photo_type)
-# print("Folder Link:", result["folder_link"])
-# print("Photo Links:", result["photo_links"])
-
-# # Example Usage for ZIP Upload
-# zip_path = "path/to/photos.zip"
-# result_zip = extract_zip_and_upload(zip_path, brand, category, sku, photo_type)
-# print("Folder Link:", result_zip["folder_link"])
-# print("Photo Links:", result_zip["photo_links"])

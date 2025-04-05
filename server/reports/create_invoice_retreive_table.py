@@ -124,6 +124,7 @@ async def fetch_invoice_details(new_invoices_df, config):
                     async with semaphore:
                         logger.debug(f"Fetching details for invoice {invoice_id}")
                         try:
+                            await asyncio.sleep(0.5)
                             return await asyncio.to_thread(
                                 fetch_object_for_each_id,
                                 config['api_domain'],

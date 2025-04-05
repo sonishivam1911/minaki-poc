@@ -1,15 +1,16 @@
-
 import pdfplumber
 import requests
 import tempfile
 import os 
+import streamlit as st
 from datetime import datetime
-import fitz  # PyMuPDF
+# import fitz  # PyMuPDF
 import re
 import pandas as pd
-from utils.zakya_api import post_record_to_zakya
+from utils.zakya_api import post_record_to_zakya, fetch_records_from_zakya, extract_record_list
 from utils.postgres_connector import crud
 from config.logger import logger
+
 
 fields = {
         "PO No": None,
@@ -26,14 +27,19 @@ fields = {
         "Total": None,
         "Size": None,
         "Product Link": None,
+        "OPC": None,
+        "Pricebook_id": None,
+        "Vendor": None,
+        "Price List": None
     }
 
-def pdf_extract__po_details_ppus(pdf_path):
-    with pdfplumber.open(pdf_path) as pdf:
-        text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
-
-    lines = text.split("\n")
+def pdf_extract__po_details_ppus(lines):
+    fields = {}
     i = 0
+    fields["Pricebook_id"] = "1923531000000090263"
+    fields["Vendor"] = "1923531000000176206"
+    fields["OPC"] = 0
+    fields["Price List"] = 0.5
     while i < len(lines):
         line = lines[i].strip()
         if "PO No" in line and i + 1 < len(lines):
@@ -70,96 +76,69 @@ def pdf_extract__po_details_ppus(pdf_path):
             fields["Total"] = line.split("Total")[-1].strip()
         elif "Size" in line:
             fields["Size"] = line.split("Size", 1)[1]
+        elif "GST No :" in line:
+            gstin = line.split()[1].split()[0]
+            if gstin.startswith("07"):
+                fields["Vendor"] = 1923531000000176206
         i += 1  # Move to the next line
     return fields
 
-
-def pdf_extract__po_details_aza(pdf_path):
-    doc = fitz.open(pdf_path)
-    text = "\n".join([page.get_text("text") for page in doc])
+def pdf_extract__po_details_aza(lines):
     fields = {}
-    lines = text.split("\n")
     i = 0
-
+    fields["Price List"] = 0.55
+    if "AZA FASHION PVT LTD DTDC E-fulfilment" in lines[7]:
+        fields["Vendor"] = 1923531000000809250
+    else:
+        fields["Vendor"] = 1923531000000176011
     while i < len(lines):
         line = lines[i].strip()
+        fields["Pricebook_id"] = "1923531000000287311"
 
         # Extract PO Details
         if "PO Number:" in line:
             fields["PO No"] = line.split("PO Number:")[-1].strip()
+        elif "GST NO: " in line:
+            gstin = line.split()[1].split()[0]
         elif "PO Date:" in line:
             fields["PO Date"] = line.split("PO Date:")[-1].strip()
         elif "Delivery Date:" in line:
             fields["PO Delivery Date"] = line.split("Delivery Date:")[-1].strip()
+        elif line == "GST":
+            detail_line = lines[i+2].split()
+            designer_code = detail_line[0]
+            product_id = detail_line[1]
+            quantity = detail_line[2]
+            cost = detail_line[3]
+            customization_charges = detail_line[4]
+            total_cost = detail_line[5]
+            product_title = lines[i+1].rsplit(" ", 1)[0] + " " + lines[i+3].rsplit(" ", 1)[0]
+            size = lines[i+1].rsplit(" ", 1)[1] + " " + lines[i+3].rsplit(" ", 1)[1]
+            size = size.strip()
+            fields_temp = {
+                                "SKU": designer_code,
+                                "Partner SKU": product_id,
+                                "Description": product_title,
+                                "Size": size,
+                                "Order Source": 'Aza Online',
+                                "Quantity": quantity,
+                                "Unit Price": cost,
+                                "Other Costs": customization_charges,
+                                "Total": total_cost,
+                                "Product Link": None
+            }
 
-        # Identify Product Information Section
-        elif "DESIGNER" in line and "CODE" in lines[i + 1] and "PRODUCT ID" in lines[i + 2]:
-            j = i + 11  # Skip table headers
-            while j < len(lines):
-
-                # Identify Designer Code (Starts with M, No Spaces)
-                if re.match(r"^M[A-Za-z0-9]+$", lines[j]):
-                    designer_code = lines[j].strip()
-                    j += 1
-
-                    # Identify Product ID (6-digit number)
-                    product_id = lines[j].strip() if re.match(r"^\d{6}$", lines[j]) else None
-                    j += 1
-
-                    # Extract Product Title (Multi-line Handling)
-                    product_title = []
-                    while j < len(lines) and not re.match(r"^[A-Z]+$", lines[j]) and not lines[j].isdigit():
-                        product_title.append(lines[j].strip())
-                        j += 1
-                    product_title = " ".join(product_title).strip()  # Merge title parts
-
-                    # Extract Size
-                    size = lines[j].strip()
-                    if size == "FREE":
-                        if j + 1 < len(lines) and lines[j + 1].strip() == "SIZE":
-                            size = "FREE SIZE"
-                            j += 1  # Move past "SIZE"
-                    elif re.match(r"^(XS|S|M|L|XL|XXL|XXXL|\d{2,3})$", size):  # Capture standard sizes
-                        pass
-                    else:
-                        size = "Unknown"  # Assign "Unknown" if size is missing or incorrect
-
-                    j += 1  # Move past SIZE field
-
-
-                    if j + 3 < len(lines):  # Ensure there are enough elements
-                        quantity = lines[j].strip()
-                        cost = lines[j + 1].strip()
-                        customization_charges = lines[j + 2].strip()
-                        total_cost = lines[j + 3].strip()
-                        j += 4
-
-                        # Store extracted product details
-                        fields_temp = {
-                            "SKU": designer_code,
-                            "Partner SKU": product_id,
-                            "Description": product_title,
-                            "Size": size,
-                            "Order Source" : None,
-                            "Quantity": quantity,
-                            "Unit Price": cost,
-                            "Other Costs": customization_charges,
-                            "Total": total_cost,
-                            "Product Link": None
-                        }
-
-                        fields = {**fields, **fields_temp}
-
-                j += 1  # Move to the next product entry
+            fields = {**fields, **fields_temp}
 
         # Extract Order Processing Charges (OPC)
         elif "Order Processing Charges" in line:
             opc_value = re.findall(r"\(\d+\)", line)
-            fields["Other Costs"] = fields["Other Costs"] + opc_value[0].replace("(", "").replace(")", "") if opc_value else None
-
+            fields["OPC"] = opc_value[0].replace("(", "").replace(")", "") if opc_value else None
+        
         i += 1
 
     return fields
+
 
 
 def format_date_for_api(date_str):
@@ -180,36 +159,29 @@ def format_date_for_api(date_str):
         return date_str
 
 
-def process_sales_order(fields, customer_name, zakya_config):
+def process_sales_order(fields, zakya_config):
     """Checks if a Sales Order exists for the given reference number and creates one if not."""
-    mapping_product = crud.read_table("zakya_products")
-    mapping_order = crud.read_table("zakya_sales_order")
-    mapping_partner = crud.read_table("mapping__partner")
-    #logger.debug(f"mapping partner is : {mapping_partner}")
-    customer_matches = mapping_partner[mapping_partner["Display Name"] == customer_name]
-    #logger.debug(f"customer matched is {customer_matches}")
-    if len(customer_matches) > 0:
-        customer_id = customer_matches["Contact ID"].iloc[0]
-        #logger.debug(f"customer_id is {customer_id}")
-    # else:
-    #     print(f"No customer found with name: {customer_name}")
-    #     # Use a default or raise an exception
-    #     customer_id = default_customer_id     
-    # customer_id = mapping_partner[["Display Name"] == customer_name]["Contact ID"][0]
-    print(mapping_product.columns)
-    # Step 2: Prepare lookup sets
-    if isinstance(mapping_product, str):
-        import json
-        mapping_product = json.loads(mapping_product)  # Convert JSON string to dict
-
-    if isinstance(mapping_product, dict):
-        mapping_product = pd.DataFrame(mapping_product.get("items", []))  # Adjust based on API response
-    
+    sales_order_data = fetch_records_from_zakya(
+                    st.session_state['api_domain'],
+                    st.session_state['access_token'],
+                    st.session_state['organization_id'],
+                    '/salesorders'                  
+    )
+    mapping_order = extract_record_list(sales_order_data,"salesorders")
+    item_data = fetch_records_from_zakya(
+                    st.session_state['api_domain'],
+                    st.session_state['access_token'],
+                    st.session_state['organization_id'],
+                    '/items'                  
+            )
+    mapping_product = extract_record_list(item_data,"items")
+    mapping_product = pd.DataFrame(mapping_product)
     item_id = None
-    existing_skus = set(mapping_product["sku"].astype(str).dropna())
     filtered_products = mapping_product[mapping_product["sku"] == fields["SKU"]]
     if not filtered_products.empty:
         item_id = filtered_products["item_id"].iloc[0]
+        mrp_rate = filtered_products["rate"].iloc[0]
+        item_name = mrp_rate = filtered_products["name"].iloc[0]
     else:
         # Handle the case where no matching SKU was found
         print(f"No product found with SKU: {fields['SKU']}")       
@@ -219,21 +191,28 @@ def process_sales_order(fields, customer_name, zakya_config):
     if not reference_number:
         print("Reference number is missing!")
         return
-    
-    existing_orders = mapping_order
+    existing_orders = pd.DataFrame(mapping_order)
     for _,order in existing_orders.iterrows():
         logger.debug(f"order is {order}")
         po_refnum = order.get("reference_number")
         po_refnum = re.sub(r"PO:\s*", "", po_refnum) 
         if po_refnum == reference_number:
-            print(f"Sales Order with reference number {reference_number} already exists.")
-            return
+            error = print(f"Sales Order with reference number {reference_number} already exists.")
+    terms_and_conditions = """
+        All orders are final. Returns or exchanges are not accepted unless the item is damaged or defective upon receipt.
+        Custom and made-to-order items cannot be cancelled or refunded once confirmed.
+        Standard dispatch within 7–14 business days. Any delays will be duly communicated.
+        Minor variations in color or finish are inherent to the handcrafted nature of our products and do not constitute defects.
+        """
     
+    mulx = fields["Price List"]
+    desc = fields["description"]
+    sku = fields["sku"]
     salesorder_payload = {
-        "customer_id": int(customer_id),
+        "customer_id": fields["Vendor"],
         "date": format_date_for_api(fields["PO Date"]),
         "shipment_date": format_date_for_api(fields["PO Delivery Date"]),
-        "reference_number": reference_number,
+        "reference_number": "PO: " + reference_number,
         "custom_fields": [
                     {
                         "index": 1,
@@ -248,29 +227,43 @@ def process_sales_order(fields, customer_name, zakya_config):
                         "api_name": "cf_order_type",
                         "placeholder": "cf_order_type",
                         "value": 'eCommerce Order'
+                    },
+                    {
+                        "index": 3,
+                        "label": "OPC",
+                        "api_name": "cf_opc",
+                        "placeholder": "cf_opc",
+                        "value": fields["OPC"]
                     }
                 ],
         "line_items": [
             {
-                "item_id": int(item_id) if item_id else '',
-                "description": f"PO: {reference_number}",
-                "rate": int(fields["Unit Price"]),
+                "name": item_name if item_name else None,
+                "item_id": int(item_id) if item_id else None,
+                "description": f"PO: {reference_number}" if item_id else f"SKU: {sku} PO: {reference_number} {desc}",
                 "quantity": int(fields["Quantity"]),
-                "item_total": int(fields["Total"])
+                "warehouse_id" : "1923531000001452123"
             }
         ],
+        "is_inclusive_tax": True,
+        "is_discount_before_tax": True,
+        "discount_type": "entity_level",
+        "discount": (round(((mrp_rate * mulx) - float(fields["Total"])) / 1.03, 2)
+            if mrp_rate and fields.get("Total") else 0),
+        "pricebook_id": fields["Pricebook_id"],
         "notes": f"Order Source : {os}",
-        "terms": "Terms and Conditions"
+        "terms": terms_and_conditions
     }
     
     print(f"Creating a new Sales Order with reference number {reference_number}...")
-    post_record_to_zakya(
+    result = post_record_to_zakya(
         zakya_config['base_url'],
         zakya_config['access_token'],  
         zakya_config['organization_id'],
         'salesorders',
         salesorder_payload
     )    
+    return result
 
 
 def download_pdf_from_link(url):

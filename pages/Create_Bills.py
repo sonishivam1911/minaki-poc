@@ -13,7 +13,7 @@ from server.bills.shiprocket import process_bills_sr
 from server.bills.np import process_bills_np
 from server.bills.aza_opc import process_bills_aza_opc
 from server.bills.zakya import process_bills_zakya
-# from server.file_management.main_file_management import upload_to_drive
+from server.file_management.main_file_management import upload_to_drive
 
 # Configure logging (Set to WARNING to suppress unnecessary logs)
 logging.basicConfig(level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -89,21 +89,21 @@ async def process_pdf(temp_path):
         billid = bill_data["bill"]["bill_id"]
         serial_number = bill_data["bill"]["bill_number"]
         function_date = bill_data["bill"]["date"]
-        # link = upload_to_drive(temp_path, 'bill', serial_number, function_date)
-        # payload = {
-        #     "custom_fields": [
-        #             {
-        #                 "api_name": "cf_bills_drive_link",
-        #                 "placeholder": "cf_bills_drive_link",
-        #                 "value": link
-        #             }
-        #         ]
-        # }
-        # addlink = put_record_to_zakya(st.session_state.get('api_domain', ''), 
-        #                               st.session_state.get('access_token', ''), 
-        #                               st.session_state.get('organization_id', ''), 
-        #                               'bills', billid, payload)
-        return bill_data['bill']
+        link = upload_to_drive(temp_path, 'bill', serial_number, function_date)
+        payload = {
+            "custom_fields": [
+                    {
+                        "api_name": "cf_bills_drive_link",
+                        "placeholder": "cf_bills_drive_link",
+                        "value": link
+                    }
+                ]
+        }
+        addlink = put_record_to_zakya(st.session_state.get('api_domain', ''), 
+                                      st.session_state.get('access_token', ''), 
+                                      st.session_state.get('organization_id', ''), 
+                                      'bills', billid, payload)
+        return addlink['bill']
 
     except Exception as e:
         logger.error(f"❌ Error processing {temp_path}: {str(e)}")
