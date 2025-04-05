@@ -1,18 +1,19 @@
 import os
 import base64
+import streamlit as st
 import email
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-SERVICE_ACCOUNT_FILE = "service_account.json"
+service_account_info = st.secrets["gcp_service_account"]
 USER_EMAIL = os.getenv("GMAIL_EMAIL")  # Replace with your Gmail address
 
 
 def authenticate_gmail():
     """Authenticate using a service account with domain-wide delegation."""
-    credentials = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    credentials = service_account.Credentials.from_service_account_info(
+        service_account_info, scopes=SCOPES
     )
     delegated_credentials = credentials.with_subject(USER_EMAIL)
     

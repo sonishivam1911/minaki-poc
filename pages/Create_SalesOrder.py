@@ -2,27 +2,18 @@ import streamlit as st
 import tempfile
 import os
 import pandas as pd
-
+import pdfplumber
 from utils.bhavvam.sales_order_gen import (
     pdf_extract__po_details_ppus, 
     pdf_extract__po_details_aza,
     process_sales_order,
     process_csv_file
 )
+from server.file_management.main_file_management import upload_to_drive
+from utils.zakya_api import put_record_to_zakya
 
 
-def process_multiple_pdfs(uploaded_files, po_format, zakya_config):
-    """
-    Processes multiple uploaded PDF files.
-    
-    Args:
-        uploaded_files: List of uploaded PDF files from Streamlit
-        po_format: String indicating the format ('PPUS' or 'AZA')
-        zakya_config: Dictionary with Zakya API configuration
-        
-    Returns:
-        Dictionary with processing results and statistics
-    """
+def process_multiple_pdfs(uploaded_files, zakya_config):
     results = {
         "total": len(uploaded_files),
         "processed": 0,
@@ -33,76 +24,104 @@ def process_multiple_pdfs(uploaded_files, po_format, zakya_config):
     for uploaded_file in uploaded_files:
         temp_path = None
         try:
-            # Save uploaded file to a temporary location
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
                 temp_file.write(uploaded_file.getvalue())
                 temp_path = temp_file.name
+
+            with pdfplumber.open(temp_path) as pdf:
+                text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
             
-            # Extract data based on selected format
-            if po_format == "PPUS":
-                result = pdf_extract__po_details_ppus(temp_path)
-                customer_name = "Pernia Delhi"
-            else:  # AZA
-                result = pdf_extract__po_details_aza(temp_path)
-                customer_name = "Aza Delhi"
+            lines = text.split("\n")
+            result_extract = None
             
-            # Process the sales order
-            process_sales_order(result, customer_name, zakya_config)
+            for line in lines:
+                if "Aza " in line:
+                    result_extract = pdf_extract__po_details_aza(lines)
+                    break
+                elif "PSL" in line:
+                    result_extract = pdf_extract__po_details_ppus(lines)
+                    break
             
-            # Update statistics
+            if not result_extract:
+                raise ValueError("Could not determine PO format (Aza/PPUS) from PDF.")
+
+            result_order = process_sales_order(result_extract, zakya_config)
+            
+            if isinstance(result_order, str) and "already exists" in result_order:
+                raise ValueError(result_order)
+
+            billid = result_order["salesorder"]["salesorder_id"]
+            serial_number = f"{result_order['salesorder']['customer_name']}-{result_order['salesorder']['salesorder_number']}"
+            function_date = result_order["salesorder"]["date"]
+            link = upload_to_drive(temp_path, 'salesorder', serial_number, function_date)
+
+            payload = {
+                "custom_fields": [
+                    {
+                        "api_name": "cf_orders_drive_link",
+                        "placeholder": "cf_orders_drive_link",
+                        "value": link
+                    }
+                ]
+            }
+
+            put_record_to_zakya(
+                zakya_config["base_url"],
+                zakya_config["access_token"],
+                zakya_config["organization_id"],
+                'salesorders',
+                billid,
+                payload
+            )
+
             results["processed"] += 1
             results["details"].append({
                 "filename": uploaded_file.name,
                 "status": "success",
-                "po_number": result.get("PO No")
+                "po_number": result_extract.get("PO No")
             })
-            
+
         except Exception as e:
-            # Handle errors
             results["failed"] += 1
             results["details"].append({
                 "filename": uploaded_file.name,
                 "status": "failed",
                 "error": str(e)
             })
-            
+
         finally:
-            # Clean up temp file
             if temp_path and os.path.exists(temp_path):
                 try:
                     os.unlink(temp_path)
-                except:
+                except Exception:
                     pass
-    
+
     return results
+    
 
 
-def on_click_create_sales_order(result,po_format):
+def on_click_create_sales_order(result, po_format):
     customer_name = "Aza Delhi" if po_format != "PPUS" else "Pernia Delhi"
-
-    process_sales_order(result,customer_name,{
-        "base_url" : st.session_state['api_domain'],
-        "access_token" : st.session_state['access_token'],
-        "organization_id" : st.session_state['organization_id'],
+    process_sales_order(result, customer_name, {
+        "base_url": st.session_state['api_domain'],
+        "access_token": st.session_state['access_token'],
+        "organization_id": st.session_state['organization_id'],
     })
     st.success("Sales order created successfully!")
 
 
-
 def process_csv_and_create_salesorder(po_format_csv, uploaded_csv):
     with st.spinner("Processing POs from CSV..."):
-                    # Get Zakya config
         zakya_config = {
-                        "base_url": st.session_state['api_domain'],
-                        "access_token": st.session_state['access_token'],
-                        "organization_id": st.session_state['organization_id'],
-                    }
+            "base_url": st.session_state['api_domain'],
+            "access_token": st.session_state['access_token'],
+            "organization_id": st.session_state['organization_id'],
+        }
         result = process_csv_file(
-                        csv_file=uploaded_csv,
-                        vendor=po_format_csv,
-                        zakya_config=zakya_config
-                    )   
-
+            csv_file=uploaded_csv,
+            vendor=po_format_csv,
+            zakya_config=zakya_config
+        )
         st.json(result)
 
 
@@ -111,67 +130,47 @@ def main():
 
     tab1, tab2 = st.tabs(["Process Single PO", "Process Multiple POs from CSV"])
 
+    # --- Tab 1: Process PDF files ---
     with tab1:
-        # File upload
-        uploaded_files = st.file_uploader("Upload PO PDF", type="pdf",accept_multiple_files=True)
+        uploaded_files = st.file_uploader("Upload PO PDF(s)", type="pdf", accept_multiple_files=True)
 
-    # Format selection radio button
-        po_format = st.radio("Select PO Format", ["PPUS", "AZA"])
-
-        if uploaded_files is not None:
-        # Save uploaded file to a temporary location
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-                temp_file.write(uploaded_files.getvalue())
-                temp_path = temp_file.name
-        
-        # Process button
+        if uploaded_files:
             if st.button("Process PDF"):
                 with st.spinner("Processing PDF files..."):
-                    # Setup Zakya config
                     zakya_config = {
                         "base_url": st.session_state['api_domain'],
                         "access_token": st.session_state['access_token'],
                         "organization_id": st.session_state['organization_id'],
                     }
-                    
-                    # Add a progress bar
+
                     progress = st.progress(0)
-                    
-                    # Process the files
-                    results = process_multiple_pdfs(uploaded_files, po_format, zakya_config)
-                    
-                    # Update progress bar to complete
+
+                    results = process_multiple_pdfs(uploaded_files, zakya_config)
+
                     progress.progress(1.0)
-                    
-                    # Display results
+
                     st.success(f"Processed {results['processed']} out of {results['total']} files")
                     if results["failed"] > 0:
                         st.warning(f"Failed to process {results['failed']} files")
-                    
-                    # Show detailed results
+
                     st.subheader("Processing Results:")
                     st.json(results["details"])
-        
-        # Clean up temp file
-            os.unlink(temp_path)
 
-
-    # Tab 2: CSV Processing (new functionality)
+    # --- Tab 2: Process from CSV ---
     with tab2:    
-        # CSV file upload
         uploaded_csv = st.file_uploader("Upload CSV with PO links", type="csv")
-
-        # Format selection radio button for CSV
         po_format_csv = st.radio("Select PO Format", ["PPUS", "AZA"], key="csv_format")        
-        
+
         if uploaded_csv is not None:
-            # Show preview of CSV
             df_preview = pd.read_csv(uploaded_csv)
             st.write("CSV Preview:")
             st.dataframe(df_preview.head())
-            
-            # Process button for CSV
-            st.button("Process CSV",on_click=process_csv_and_create_salesorder,kwargs=(po_format_csv, uploaded_csv))
+
+            st.button(
+                "Process CSV",
+                on_click=process_csv_and_create_salesorder,
+                kwargs={"po_format_csv": po_format_csv, "uploaded_csv": uploaded_csv}
+            )
 
 
 main()
