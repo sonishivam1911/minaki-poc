@@ -12,10 +12,13 @@ from server.invoice.main import InvoiceProcessor
 class AzaInvoiceProcessor(InvoiceProcessor):
     """Invoice processor for Aza vendor."""
     
-    def __init__(self, sales_df, invoice_date, zakya_connection_object, customer_name):
+    def __init__(self, sales_df, invoice_date, zakya_connection_object, customer_name,missing_order,present_orders,missng_salesorder_reference_number_mapping):
         """Initialize with Aza-specific parameters."""
         super().__init__(sales_df, invoice_date, zakya_connection_object)
         self.customer_name = customer_name
+        self.missing_order = missing_order
+        self.present_orders = present_orders
+        self.missng_salesorder_reference_number_mapping = missng_salesorder_reference_number_mapping
     
     def get_sku_field_name(self):
         """Return the field name for SKU in Aza dataframe."""
@@ -33,6 +36,58 @@ class AzaInvoiceProcessor(InvoiceProcessor):
         """No additional async preprocessing needed for Aza."""
         pass
     
+    def update_inventory(self, inventory_adjustments_needed):
+    # Process inventory adjustments if needed
+        adjustment_results = []
+        for adjustment in inventory_adjustments_needed:
+            try:
+                inv_payload = {
+                    "date": datetime.now().strftime("%Y-%m-%d"),
+                    "reason": "Stock Retally",
+                    "adjustment_type": "quantity",
+                    "line_items": [
+                        {
+                            "item_id": adjustment["item_id"],
+                            "quantity_adjusted": adjustment["quantity_adjusted"]
+                        }
+                    ]
+                }
+                
+                inventory_correction_response = post_record_to_zakya(
+                    self.zakya_connection_object['base_url'],
+                    self.zakya_connection_object['access_token'],
+                    self.zakya_connection_object['organization_id'],
+                    'inventoryadjustments',
+                    inv_payload   
+                )
+                
+                if "inventory_adjustment" in inventory_correction_response:
+                    adjustment_id = inventory_correction_response["inventory_adjustment"].get("inventory_adjustment_id")
+                    adjustment_results.append({
+                        "item_name": adjustment["item_name"],
+                        "adjustment_id": adjustment_id,
+                        "quantity_adjusted": adjustment["quantity_adjusted"],
+                        "status": "Success"
+                    })
+                else:
+                    adjustment_results.append({
+                        "item_name": adjustment["item_name"],
+                        "status": "Failed",
+                        "error": str(inventory_correction_response)
+                    })
+
+                return adjustment_results
+                    
+            except Exception as e:
+                logger.error(f"Error creating inventory adjustment for {adjustment['item_name']}: {e}")
+                adjustment_results.append({
+                    "item_name": adjustment["item_name"],
+                    "status": "Failed",
+                    "error": str(e)
+                })    
+                return adjustment_results
+
+
     async def create_invoices(self, invoice_object):
         """Create a single invoice for specified customer for Aza."""
         # Get customer data
@@ -48,52 +103,129 @@ class AzaInvoiceProcessor(InvoiceProcessor):
         
         customer_id = customer_data[0]["contact_id"]
         gst = customer_data[0].get("gst_no", "")
-        salesorder_product_mapping_dict = super().fetch_item_id_sales_order_mapping()
         
-        # Create line items for invoice
         line_items = []
-        for _, row in self.sales_df.iterrows():
-            try:
-                sku = row.get("SKU", "").strip()
-                item_description = row.get("Item Description", "")
-                quantity = int(row.get("Qty", 0))
-                total = float(row.get("Total", 0))
-                
-                # Skip empty rows
-                if not sku or quantity <= 0:
+        processed_po_numbers = []
+        inventory_adjustments_needed = []
+
+        # creating invoices for missing order
+
+        for _,row in self.missing_order.iterrows():
+            is_mapped = row.get("is_mapped",False)
+            if not is_mapped:
+                # Create line item
+                line_item = {
+                    "description": f"Missing sku from our database, sku is : {row.get('SKU')} and pernia code is : {row.get('SKU Code')}",
+                    "rate": row.get('Total'),
+                    "quantity": 1,
+                    "hsn_or_sac": "711790"  # Default HSN code
+                }        
+            else:
+                item_name = row.get('Item Description', "").strip()
+                item_id = row.get("item_id")
+                reference_number = str(row.get('PO No.'))
+                mapped_so_id = self.missng_salesorder_reference_number_mapping[reference_number]
+                quantity = 1
+                rate = float(row.get("Total", 0))
+                stock_on_hand = float(row.get("Stock on Hand", 0))     
+
+                # Skip if no rate or invalid data
+                if rate <= 0:
                     continue
                     
-                # Prepare line item
+                # Create line item
                 line_item = {
-                    "name": item_description,
-                    "description": f"{sku} - {item_description}",
-                    "rate": total,
+                    "name": item_name,
+                    "description": f"PO Number : {reference_number}",
+                    "rate": rate,
                     "quantity": quantity,
                     "hsn_or_sac": "711790"  # Default HSN code
                 }
                 
-                # Check if this SKU exists and add item_id only if it does
-                if sku in invoice_object.get('existing_sku_item_id_mapping', {}):
-                    line_item["item_id"] = invoice_object['existing_sku_item_id_mapping'][sku]
+                # Add item_id if it exists
+                if item_id:
+                    line_item["item_id"] = item_id
+                    
+                    # Check if inventory adjustment is needed
+                    if item_id and stock_on_hand < quantity:
+                        quantity_adjusted = quantity - stock_on_hand
+                        inventory_adjustments_needed.append({
+                            "item_id": item_id,
+                            "quantity_adjusted": quantity_adjusted,
+                            "item_name": item_name
+                        })
+                    
+                # Add salesorder_item_id if it exists
+                if mapped_so_id:
+                    line_item["salesorder_item_id"] = mapped_so_id                
 
-                    if line_item["item_id"] in salesorder_product_mapping_dict:
-                        #logger.debug(f"Salesorder item id is : {salesorder_product_mapping_dict[line_item["item_id"]]}")
-                        line_item["salesorder_item_id"] = salesorder_product_mapping_dict[line_item["item_id"]]               
+            line_items.append(line_item)
+            processed_po_numbers.append(str(row.get('PO No.')))                     
+
+        # creating invoice line items
+            
+        for _,row in self.present_orders.iterrows():
+            try:
+                is_mapped = row.get("is_mapped",False)
+                if not is_mapped:
+                    # fetch from salesorder item id mapping -- for mapped sales order get item id and use that 
+                    # salesorder_line_item_mapping_df[salesorder_line_item_mapping_df[''] == ]
+                    logger.debug(f"Not mapped product is : {row.to_dict()}")
+                    continue
                 
+                quantity_invoiced = row.get('Quantity Invoiced')
+
+                if quantity_invoiced:
+                    logger.debug(f"Already invoiced {row.to_dict()}")
+                    continue
+
+                order_number = str(row.get('PO No.'))
+                item_name = row.get("Item Description", "").strip()
+                item_id = row.get("item_id")
+                mapped_so_id = row.get("Mapped Salesorder ID")
+                quantity = 1
+                rate = float(row.get("Total", 0))
+                stock_on_hand = float(row.get("stock_on_hand", 0))
+                
+                # Skip if no rate or invalid data
+                if rate <= 0:
+                    continue
+                    
+                # Create line item
+                line_item = {
+                    "name": item_name,
+                    "description": f"Order: {order_number}",
+                    "rate": rate,
+                    "quantity": quantity,
+                    "hsn_or_sac": "711790"  # Default HSN code
+                }
+                
+                # Add item_id if it exists
+                if item_id:
+                    line_item["item_id"] = item_id
+                    
+                    # Check if inventory adjustment is needed
+                    if item_id and stock_on_hand < quantity:
+                        quantity_adjusted = quantity - stock_on_hand
+                        inventory_adjustments_needed.append({
+                            "item_id": item_id,
+                            "quantity_adjusted": quantity_adjusted,
+                            "item_name": item_name
+                        })
+                    
+                # Add salesorder_item_id if it exists
+                if mapped_so_id:
+                    line_item["salesorder_item_id"] = mapped_so_id
+                    
                 line_items.append(line_item)
-                
-            except Exception as e:
+                processed_po_numbers.append(order_number)   
+            except Exception as e: 
                 logger.error(f"Error processing row: {e}")
-                continue
+                continue         
         
-        if not line_items:
-            logger.warning(f"No valid line items for customer: {self.customer_name}")
-            return pd.DataFrame([{
-                "customer_name": self.customer_name,
-                "status": "Failed",
-                "error": "No valid line items"
-            }])
         
+
+        adjustments_result = self.update_inventory(inventory_adjustments_needed)
         # Create invoice payload
         invoice_payload = {
             "customer_id": customer_id,
@@ -124,15 +256,22 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 invoice_data = invoice_response["invoice"]
                 total_amount = sum(item["rate"] * item["quantity"] for item in line_items)
                 
-                return pd.DataFrame([{
+                invoice_df =  pd.DataFrame([{
                     "invoice_id": invoice_data.get("invoice_id"),
                     "invoice_number": invoice_data.get("invoice_number"),
                     "customer_name": self.customer_name,
                     "date": invoice_payload["date"],
                     "due_date": invoice_data.get("due_date"),
                     "amount": total_amount,
-                    "status": "Success"
+                    "status": "Success",
+                    "inventory_adjustments": len(adjustments_result),
+                    "inventory_adjustments_success": sum(1 for adj in adjustments_result if adj["status"] == "Success")                    
                 }])
+
+                return {
+                'invoice_df' : invoice_df, 
+                'adjustment_df' : pd.DataFrame.from_records(adjustments_result)
+                }
             else:
                 logger.error(f"Invalid invoice response for {self.customer_name}: {invoice_response}")
                 return pd.DataFrame([{
@@ -143,13 +282,13 @@ class AzaInvoiceProcessor(InvoiceProcessor):
                 }])
         except Exception as e:
             logger.error(f"Error creating invoice for {self.customer_name}: {e}")
-            return pd.DataFrame([{
-                "customer_name": self.customer_name,
-                "date": invoice_payload["date"],
-                "status": "Failed",
-                "error": str(e)
-            }])
-
+            return {
+                    'invoice_df' : pd.DataFrame([{
+                        "customer_name": self.customer_name,
+                        "status": "Already Invoiced",
+                    }]), 
+                    'adjustment_df' : pd.DataFrame()
+                }
     async def analyze_uploaded_products(self):
         """
         Analyze the uploaded Aza Excel data to identify mapped and unmapped products.
@@ -327,21 +466,21 @@ class AzaInvoiceProcessor(InvoiceProcessor):
             # Filter to only include the selected customer
             mapped_sales_order_with_product_df = mapped_sales_order_with_product_df[mapped_sales_order_with_product_df['customer_id'] == customer_id]
 
-            start_date = self.invoice_date
+            # start_date = self.invoice_date
 
-            date_45_days_before = start_date - timedelta(days=60)
+            # date_45_days_before = start_date - timedelta(days=60)
             
-            # Convert dates for comparison
-            start_date_str = start_date.strftime('%Y-%m-%d')
-            date_45_days_before_str = date_45_days_before.strftime('%Y-%m-%d')
+            # # Convert dates for comparison
+            # start_date_str = start_date.strftime('%Y-%m-%d')
+            # date_45_days_before_str = date_45_days_before.strftime('%Y-%m-%d')
             
-            # Filter sales orders to only include those between 45 days before start_date and start_date
-            mapped_sales_order_with_product_df = mapped_sales_order_with_product_df[
-                (mapped_sales_order_with_product_df['date'] >= date_45_days_before_str) & 
-                (mapped_sales_order_with_product_df['date'] <= start_date_str)
-            ]            
+            # # Filter sales orders to only include those between 45 days before start_date and start_date
+            # mapped_sales_order_with_product_df = mapped_sales_order_with_product_df[
+            #     (mapped_sales_order_with_product_df['date'] >= date_45_days_before_str) & 
+            #     (mapped_sales_order_with_product_df['date'] <= start_date_str)
+            # ]            
 
-            logger.debug(f"Mapped Sales Order after date filtering : {mapped_sales_order_with_product_df}")
+            # logger.debug(f"Mapped Sales Order after date filtering : {mapped_sales_order_with_product_df}")
             
             # Join with the salesorder_item_mapping to get item details
             sales_orders_df = pd.merge(
@@ -582,57 +721,64 @@ class AzaInvoiceProcessor(InvoiceProcessor):
         
         # Convert mapped_sales_order_items to a set for quick lookups
         mapped_item_ids = set(mapped_sales_order_items.keys())
-        
+        try:
         # Check each Aza order item
-        for idx, row in self.sales_df.iterrows():
-            sku = row.get('SKU', '').strip()
-            
-            if not sku:
-                continue
-            
-            # Check if this SKU is mapped to a product
-            is_mapped = sku in product_mapping
-            item_id = product_mapping.get(sku, None)
-            
-            # Check if this item has a valid sales order
-            has_sales_order = False
-            if is_mapped and item_id in mapped_item_ids:
-                has_sales_order = True
-            
-            # Convert Aza order row to dict for both cases
-            aza_item = row.to_dict()
-            aza_item['is_mapped'] = is_mapped
-            aza_item['item_id'] = item_id
-            
-            if has_sales_order:
-                # It's present - get the associated lowest sales order info
-                so_info = mapped_sales_order_items.get(item_id, {}).get('row', {})
+            for idx, row in self.sales_df.iterrows():
+                sku = row.get('SKU', '').strip()
                 
-                # Add the selected salesorder_id
-                aza_item['selected_salesorder_id'] = mapped_sales_order_items.get(item_id, {}).get('salesorder_id', '')
+                if not sku:
+                    continue
                 
-                # Merge Aza item data with sales order data
-                present_item = {**aza_item, **so_info}
-                present_items.append(present_item)
-            else:
-                # It's missing - add reason
-                if not is_mapped:
-                    aza_item['reason'] = "Not mapped in Zakya"
-                elif item_id not in mapped_item_ids:
-                    # Check if it's invoiced
-                    if sales_orders is not None and not sales_orders.empty:
-                        invoiced_orders = sales_orders[
-                            (sales_orders['item_id'] == item_id) & 
-                            (sales_orders['Invoice Status'] != 'Not Invoiced')
-                        ]
-                        if not invoiced_orders.empty:
-                            aza_item['reason'] = "Already invoiced"
+                # Check if this SKU is mapped to a product
+                is_mapped = sku in product_mapping
+                item_id = product_mapping.get(sku, None)
+                
+                # Check if this item has a valid sales order
+                # has_sales_order = False
+                # if is_mapped and item_id in mapped_item_ids:
+                #     has_sales_order = True
+                
+                # Convert Aza order row to dict for both cases
+                aza_item = row.to_dict()
+                aza_item['is_mapped'] = is_mapped
+                aza_item['item_id'] = item_id
+                aza_item['is_mapped'] = False
+                
+                filtered_salesorder = sales_orders[sales_orders['Mapped POs'] == str(aza_item['PO No.'])]
+    
+                
+                if not filtered_salesorder.empty:
+                    # It's present - get the associated lowest sales order info
+                    filtered_salesorder_row = filtered_salesorder.to_dict('records')
+                    aza_item['is_mapped'] = True
+                    # Mapped Salesorder ID
+                    aza_item['item_id'] = filtered_salesorder_row[0]['item_id']
+                    aza_item['Mapped Salesorder ID'] = filtered_salesorder_row[0]['Mapped Salesorder ID']
+                    aza_item['Invoice Status'] = filtered_salesorder_row[0]['Invoice Status']
+
+                    # Merge Aza item data with sales order data quantity_invoiced_y
+                    present_items.append(aza_item)
+                else:
+                    # It's missing - add reason
+                    if not is_mapped:
+                        aza_item['reason'] = "Not mapped in Zakya"
+                    elif item_id not in mapped_item_ids:
+                        # Check if it's invoiced
+                        if sales_orders is not None and not sales_orders.empty:
+                            invoiced_orders = sales_orders[
+                                (sales_orders['item_id'] == item_id) & 
+                                (sales_orders['Invoice Status'] != 'Not Invoiced')
+                            ]
+                            if not invoiced_orders.empty:
+                                aza_item['reason'] = "Already invoiced"
+                            else:
+                                aza_item['reason'] = "No sales order found"
                         else:
                             aza_item['reason'] = "No sales order found"
-                    else:
-                        aza_item['reason'] = "No sales order found"
-                
-                missing_items.append(aza_item)
+                    
+                    missing_items.append(aza_item)
+        except Exception as e:
+            logger.debug(f"Error is : {e}")
         
         # Create DataFrames
         missing_df = pd.DataFrame(missing_items) if missing_items else pd.DataFrame()

@@ -14,18 +14,16 @@ from server.aza_invoice_service import (
 def aza_sales_orders_tab():
     """Display the sales orders tab for Aza with two containers."""
     # Only proceed if we have Aza orders
-    if st.session_state.get('aza_orders') is None:
+    if 'aza_orders' not in st.session_state:
         st.info("No Aza orders loaded. Please upload an Aza sales file first.")
         return
-    
-    st.info(f"Mapped proucts are : {st.session_state.get('aza_mapped_products')}")
-    
+        
     # Check if product mapping analysis has been done
-    if st.session_state.get('aza_mapped_products') is None and st.session_state.get('aza_unmapped_products') is None:
+    if 'aza_mapped_products' not in st.session_state and 'aza_unmapped_products' not in st.session_state:
         st.warning("Please click 'Analyze Product Mapping' in the Aza Orders section first.")
         return
     
-    st.info(f"aza_sales_orders are : {st.session_state.get('aza_sales_orders')}")
+    logger.debug(f"{'aza_sales_orders' in st.session_state}")
     
     # Fetch sales orders if not already done
     if st.session_state.get('aza_sales_orders') is None:
@@ -33,7 +31,7 @@ def aza_sales_orders_tab():
             with st.spinner("Fetching sales orders and inventory data..."):
                 # Get Zakya connection details
                 zakya_connection = get_zakya_connection()
-                customer_id = st.session_state.get('customer_id')
+                customer_id = st.session_state.get('customer_id',None)
                 
                 if not customer_id:
                     st.error("Customer ID not found. Please select a customer first.")
@@ -55,9 +53,9 @@ def aza_sales_orders_tab():
                 # Fetch sales orders
                 sales_orders = fetch_aza_salesorders_by_customer_service(config)
 
-                with st.container():
-                    st.subheader("Sales order mapping")
-                    st.dataframe(sales_orders,use_container_width=True)
+                # with st.container():
+                #     st.subheader("Sales order mapping")
+                #     st.dataframe(sales_orders,use_container_width=True)
                 
                 # Fetch inventory data separately for all mapped products
                 inventory_data = fetch_aza_inventory_data(
@@ -88,7 +86,6 @@ def aza_sales_orders_tab():
                             #logger.debug(f"Missing Sales Order : {missing_orders}")
                             st.session_state['aza_missing_sales_orders'] = missing_orders
                             st.session_state['present_orders'] = present_orders
-                            present_orders
                             
                             # Update mapping status
                             update_aza_product_mapping_status()
@@ -257,13 +254,20 @@ def aza_missing_sales_orders_container():
             # Display results
             if results.get('success'):
                 st.success(f"Successfully created {results.get('created_count', 0)} sales orders!")
-                
+
+                missng_salesorder_reference_number_mapping = {}
+                for obj in results.get('details'):
+                    # remove PO
+                    reference_number = obj.get('reference_number','').split(":")[-1].strip()
+                    salesorder_id = obj.get('salesorder_id','')
+                    missng_salesorder_reference_number_mapping[reference_number] = salesorder_id
+
+
                 # Refresh sales order data
                 st.session_state['aza_sales_orders'] = None
                 st.session_state['aza_missing_sales_orders'] = None
                 
-                # Force refresh
-                st.rerun()
+
             else:
                 st.error(f"Error creating sales orders: {results.get('error', 'Unknown error')}")
                 

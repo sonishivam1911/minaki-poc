@@ -51,7 +51,7 @@ def aza_orders_section():
                 # Call the backend service to analyze product mapping
                 results = analyze_aza_products(df, sku_field="SKU")
 
-                logger.debug(f"Result after analyxe products is : {results}")
+                # logger.debug(f"Result after analyxe products is : {results}")
                 
                 # Store results in session state
                 st.session_state['aza_mapped_products'] = results.get('mapped_products')
