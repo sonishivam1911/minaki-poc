@@ -128,8 +128,8 @@ def create_sr_forward(params):
         "height": height,
         "weight": weight,
         "pickup_location": pickup_location,
-        "print_label": False,
-        "generate_manifest": False,
+        "print_label": True,
+        "generate_manifest": True,
         "courier_id": courier_id,
         "ewaybill_no": ewaybill_no,
         "request_pickup": request_pickup
