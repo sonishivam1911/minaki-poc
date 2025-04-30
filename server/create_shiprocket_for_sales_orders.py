@@ -36,8 +36,8 @@ def create_shiprocket_for_sales_orders(salesorder_id,weight):
     sales_order_item_detail = sales_order_item_detail['salesorder']
     # ask for contact email and number from the user 
     auth_data=shiprocket_auth()
-    st.session_state['token'] = auth_data['token']
-    check_service_data=check_service(st.session_state['token'],'110021',sales_order_item_detail["shipping_address"]["zip"],weight)
+    st.session_state['sr_token'] = auth_data['token']
+    check_service_data=check_service(st.session_state['sr_token'],'110021',sales_order_item_detail["shipping_address"]["zip"],weight)
     available_courier_companies_df = pd.DataFrame.from_records(check_service_data['data']['available_courier_companies'])
     return available_courier_companies_df,sales_order_item_detail['contact_persons']
 
@@ -284,61 +284,32 @@ def save_shipment_to_database(shiprocket_result, sales_order_details):
                 'pickup_token_number': payload.get('pickup_token_number'),
                 'routing_code': payload.get('routing_code'),
             }
+        else:
+            return False, "Invalid or unsuccessful Shiprocket response"
 
-        # Extract sales order data
-        sales_order_data = {}
-        if sales_order_details:
-            sales_order_data = {
-                'sales_order_id': sales_order_details.get('salesorder_id'),
-                'sales_order_number': sales_order_details.get('salesorder_number'),
-                'customer_id': sales_order_details.get('customer_id'),
-                'customer_name': sales_order_details.get('customer_name'),
-                'order_date': sales_order_details.get('date'),
-                'status': sales_order_details.get('status'),
-                'total': sales_order_details.get('total'),
-            }
-            
-            # Add shipping address if available
-            if 'shipping_address' in sales_order_details:
-                shipping = sales_order_details['shipping_address']
-                sales_order_data.update({
-                    'shipping_address': shipping.get('address'),
-                    'shipping_city': shipping.get('city'),
-                    'shipping_state': shipping.get('state'),
-                    'shipping_zip': shipping.get('zip'),
-                    'shipping_country': shipping.get('country')
-                })
-        
-        # Combine all data
-        combined_data = {**sales_order_data, **shiprocket_data}
-        
-        # Handle null values to prevent SQL errors
-        for key, value in combined_data.items():
-            if value is None:
-                combined_data[key] = ''
-        
-        # Create DataFrame
-        df = pd.DataFrame([combined_data])
-        ##logger.debug(f"Record to save to dataframe : {df}")
-        # Check if record already exists
-        check_query = f"""
-        SELECT id FROM shiprocket_salesorder_mapping 
-        WHERE sales_order_id = '{combined_data.get('sales_order_id', '')}' 
-        AND shipment_id = '{combined_data.get('shipment_id', '')}'
-        """
-        
-        existing_record_df = crud.execute_query(check_query, return_data=True)
-        
-        if existing_record_df.empty:
-            insert_statements = crud.create_insert_statements(df, "shiprocket_salesorder_mapping")
-            for statement in insert_statements:
-                crud.execute_query(statement)
+        # Extract sales order info
+        sales_data = {
+            'salesorder_id': sales_order_details.get('salesorder_id'),
+            'salesorder_number': sales_order_details.get('salesorder_number'),
+            'customer_name': sales_order_details.get('customer_name'),
+            'shipping_city': sales_order_details.get('shipping_address', {}).get('city'),
+            'shipping_pincode': sales_order_details.get('shipping_address', {}).get('zip'),
+            'shipping_state': sales_order_details.get('shipping_address', {}).get('state'),
+            'shipping_country': sales_order_details.get('shipping_address', {}).get('country'),
+        }
 
-        return True, "Shipment data saved successfully to database"
-        
+        # Merge both dictionaries
+        combined_data = {**sales_data, **shiprocket_data}
+        combined_data['created_at'] = datetime.datetime.utcnow()
+
+        # Save to database
+        crud.insert_record('log.shiprocket_shipments', combined_data)
+
+        return True, "Shipment data saved successfully"
+
     except Exception as e:
-        #logger.error(f"Error saving shipment data to database: {str(e)}")
-        return False, f"Error saving shipment data: {str(e)}"
+        logger.error(f"Error saving shipment to database: {e}")
+        return False, str(e)
     
 
 def flatten_order(order):
@@ -425,11 +396,11 @@ def flatten_shipments(shipments_data):
 
 def fetch_shipment_details():
     
-    if 'token' not in st.session_state:
+    if 'sr_token' not in st.session_state:
         auth_data=shiprocket_auth()
-        st.session_state['token'] = auth_data['token']
+        st.session_state['sr_token'] = auth_data['token']
     
-    list_shipment_result=list_shipments(token=st.session_state['token'])
+    list_shipment_result=list_shipments(token=st.session_state['sr_token'])
     list_shipment_result=flatten_shipments(list_shipment_result)
     #logger.debug(f"Shipment Listing Result - {list_shipment_result}")
     return list_shipment_result
@@ -437,10 +408,10 @@ def fetch_shipment_details():
 
 def fetch_all_return_orders_service():
     
-    if 'token' not in st.session_state:
+    if 'sr_token' not in st.session_state:
         auth_data=shiprocket_auth()
-        st.session_state['token'] = auth_data['token']
+        st.session_state['sr_token'] = auth_data['token']
     
-    all_return_orders_result=fetch_all_return_orders(token=st.session_state['token'])
+    all_return_orders_result=fetch_all_return_orders(token=st.session_state['sr_token'])
     #logger.debug(f"Return Orders Result - {all_return_orders_result}")
     return pd.DataFrame.from_records(all_return_orders_result['data'])
