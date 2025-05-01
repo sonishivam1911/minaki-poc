@@ -29,13 +29,14 @@ def aza_invoice_tab():
 
     for _,row in aza_orders.iterrows():
 
-        reference_number = str(row.get('PO Number'))
+        reference_number = str(row.get('PO No.'))
         # logger.debug(f"Pernia row to dict is : {row.to_dict()}")
         aza_row_dict=row.to_dict()
         if reference_number in missng_salesorder_reference_number_mapping:
             aza_row_dict['Mapped Salesorder ID']  = missng_salesorder_reference_number_mapping[reference_number]
         else:
             sales_orders_dict=sales_orders[sales_orders['Mapped POs'] == reference_number].to_dict('records')[0]
+            print(f"Sales orders dict is {sales_orders_dict} and reference number is {reference_number}")
             aza_row_dict['Mapped Salesorder ID'] = sales_orders_dict['Mapped Salesorder ID']
 
         output.append(aza_row_dict)

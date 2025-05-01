@@ -1,10 +1,9 @@
 
 import pandas as pd
-from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from config.logger import logger
 from utils.postgres_connector import crud
-from utils.zakya_api import fetch_records_from_zakya, post_record_to_zakya, fetch_object_for_each_id
+from utils.zakya_api import fetch_records_from_zakya, post_record_to_zakya
 from core.helper_zakya import extract_record_list
 from server.invoice.main import InvoiceProcessor
 
@@ -12,7 +11,7 @@ from server.invoice.main import InvoiceProcessor
 class AzaInvoiceProcessor(InvoiceProcessor):
     """Invoice processor for Aza vendor."""
     
-    def __init__(self, sales_df, invoice_date, zakya_connection_object, customer_name,missing_order,present_orders,missng_salesorder_reference_number_mapping):
+    def __init__(self, sales_df, invoice_date, zakya_connection_object, customer_name,missing_order=None,present_orders=None,missng_salesorder_reference_number_mapping=None):
         """Initialize with Aza-specific parameters."""
         super().__init__(sales_df, invoice_date, zakya_connection_object)
         self.customer_name = customer_name
