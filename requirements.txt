@@ -1,7 +1,7 @@
 aiohappyeyeballs
 aiohttp
 aiosignal
-altair
+altair==4.2.2
 attrs
 bcrypt
 beautifulsoup4
