@@ -47,22 +47,7 @@ def logout():
 def main():
     """Main application logic."""
 
-    zakya_auth_df = crud.read_table("zakya_auth")
-    if isinstance(zakya_auth_df,pd.DataFrame):
-        zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
-    else:
-        st.error(f"Issue with database connection : {zakya_auth_df}")
-        zakya_auth_df = pd.DataFrame()
-        
-    if not zakya_auth_df.empty:
-        try:
-            set_access_token_via_refresh_token()
-        except Exception as e:
-            logger.error(f"Error refreshing token: {e}")
-            st.error("Could not refresh authentication token. Please try logging in again.")
-            fetch_zakya_code()
-    else:   
-        set_refresh_token()
+    fetch_and_assign_session_variables()
 
     try:
         if 'access_token' in st.session_state:
@@ -82,6 +67,24 @@ def main():
     except Exception as e:
         logger.error(f"Error fetching organizations: {e}")
         st.error("Error connecting to Zakya. Please check your connection and try again.")
+
+def fetch_and_assign_session_variables():
+    zakya_auth_df = crud.read_table("zakya_auth")
+    if isinstance(zakya_auth_df,pd.DataFrame):
+        zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
+    else:
+        st.error(f"Issue with database connection : {zakya_auth_df}")
+        zakya_auth_df = pd.DataFrame()
+        
+    if not zakya_auth_df.empty:
+        try:
+            set_access_token_via_refresh_token()
+        except Exception as e:
+            logger.error(f"Error refreshing token: {e}")
+            st.error("Could not refresh authentication token. Please try logging in again.")
+            fetch_zakya_code()
+    else:   
+        set_refresh_token()
 
 
 
