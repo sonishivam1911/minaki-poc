@@ -50,6 +50,7 @@ def zakya_api_interaction():
             if operation == "fetch":
                 endpoint1 = '/' + endpoint
                 records = fetch_records_from_zakya(api_domain, access_token, organization_id, endpoint1)
+                print(f"[DEBUG] records fetched are : {records} and endpoint : {endpoint1}")
                 response = extract_record_list(records,endpoint)
             elif operation == "retrieve":
                 endpoint1 = endpoint + "/" + object_id
