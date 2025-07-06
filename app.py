@@ -89,7 +89,7 @@ def fetch_and_assign_session_variables():
 
 
 def set_access_token_via_refresh_token():
-    # Use consistent table name - zakya_auth
+
     zakya_auth_df = crud.read_table("zakya_auth")
     zakya_auth_df = zakya_auth_df[zakya_auth_df['env'] == os.getenv('env')]
     
@@ -97,9 +97,7 @@ def set_access_token_via_refresh_token():
         logger.error("No authentication data found in database")
         raise Exception("No authentication data found")
     
-    # Correctly access the refresh token value
     refresh_token = zakya_auth_df["refresh_token"].iloc[0]
-    # #logger.debug(f"Refresh token is {refresh_token}")
     st.session_state["refresh_token"] = refresh_token
     
     refresh_token_data = get_access_token(refresh_token=refresh_token)
@@ -109,11 +107,7 @@ def set_access_token_via_refresh_token():
         raise Exception("Failed to refresh token")
     
     st.session_state['access_token'] = refresh_token_data['access_token']
-    
-    # Set API domain consistently
     st.session_state['api_domain'] = 'https://api.zakya.in/'
-
-    #logger.debug(f"State variables are as follows : {st.session_state}")
 
 
 def set_refresh_token():
@@ -203,6 +197,5 @@ def token_authentication():
     
     st.success("Authentication successful!")
 
-
-# Run the main function
-main()
+if __name__ == "__main__":
+    main()
