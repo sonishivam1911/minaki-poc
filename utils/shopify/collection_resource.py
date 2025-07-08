@@ -1,188 +1,312 @@
 import shopify
 import pandas as pd
-import os 
-
+from typing import List, Dict, Any, Optional, Union
 from config.logger import logger
-from dotenv import load_dotenv
-from .shopify_base_class import BaseShopifyResource
-
-load_dotenv()
+from utils.shopify.shopify_base_class import BaseShopifyResource
 
 class CollectionResource(BaseShopifyResource):
     """
-    Resource-specific class for 'Collection' objects,
-    including logic for fetching collections and their products.
+    Resource class for handling Shopify collections and their products.
     """
     
-    def get_all(self):
+    def get_all(self) -> List[Dict[str, Any]]:
         """
-        Retrieves all Collection objects, handles pagination,
-        and returns them in a list.
-        """
-        all_collections = []
-        collection_data = getattr(shopify, "CustomCollection")
-        collections = collection_data.find(since_id=0, limit=250)
+        Retrieve all collections from Shopify.
+        Returns a list of dictionaries instead of Shopify objects to avoid type issues.
         
-        # Gather collections with pagination
-        while True:
-            for collection in collections:
-                all_collections.append(collection)
-            if not collections.has_next_page():
-                break
-            collections = collections.next_page()
-        
-        # Also get smart collections
-        smart_collection_data = getattr(shopify, "SmartCollection")
-        smart_collections = smart_collection_data.find(since_id=0, limit=250)
-        
-        # Gather smart collections with pagination
-        while True:
-            for collection in smart_collections:
-                all_collections.append(collection)
-            if not smart_collections.has_next_page():
-                break
-            smart_collections = smart_collections.next_page()
-        
-        return all_collections
-    
-    def get_products_in_collection(self, collection_id):
-        """
-        Retrieves all products in a specific collection using Collect objects.
-        Works for both custom and smart collections by using different query parameters.
-        
-        Args:
-            collection_id: The ID of the collection to fetch products from
-                
         Returns:
-            List of product objects in the collection
+            List of collection dictionaries
         """
         try:
-            # First determine if it's a smart collection
-            is_smart_collection = False
-            try:
-                shopify.CustomCollection.find(collection_id)
-            except:
-                try:
-                    shopify.SmartCollection.find(collection_id)
-                    is_smart_collection = True
-                except:
-                    print(f"Collection {collection_id} not found")
-                    return []
+            logger.info("Fetching all collections from Shopify")
+            all_collections = []
             
-            collect_data = getattr(shopify, "Collect")
-            url = "https://" + self.connector.shop_url + "/admin/api/" + self.connector.api_version + f"/collections/{collection_id}/products.json"
-            # Make the request manually
+            # Fetch custom collections
+            custom_collections = shopify.CustomCollection.find(limit=250)
+            while True:
+                for collection in custom_collections:
+                    collection_dict = {
+                        'id': str(collection.id),
+                        'title': collection.title,
+                        'handle': collection.handle,
+                        'type': 'custom',
+                        'products_count': getattr(collection, 'products_count', 0),
+                        'published_at': getattr(collection, 'published_at', None),
+                        'created_at': getattr(collection, 'created_at', None),
+                        'updated_at': getattr(collection, 'updated_at', None),
+                        'shopify_object': collection  # Keep reference to original object
+                    }
+                    all_collections.append(collection_dict)
+                    
+                if not custom_collections.has_next_page():
+                    break
+                custom_collections = custom_collections.next_page()
             
+            # Fetch smart collections
+            smart_collections = shopify.SmartCollection.find(limit=250)
+            while True:
+                for collection in smart_collections:
+                    collection_dict = {
+                        'id': str(collection.id),
+                        'title': collection.title,
+                        'handle': collection.handle,
+                        'type': 'smart',
+                        'products_count': getattr(collection, 'products_count', 0),
+                        'published_at': getattr(collection, 'published_at', None),
+                        'created_at': getattr(collection, 'created_at', None),
+                        'updated_at': getattr(collection, 'updated_at', None),
+                        'shopify_object': collection  # Keep reference to original object
+                    }
+                    all_collections.append(collection_dict)
+                    
+                if not smart_collections.has_next_page():
+                    break
+                smart_collections = smart_collections.next_page()
             
-            # Using requests library if available, or standard urllib
-          
-            
-            # For smart collections, we need a different approach with the Collect resource
-            # Instead of collection_id, we'll query for all collects and filter by collection_id
-            if is_smart_collection:
-                # Get all collects (potentially inefficient but necessary)
-                # You may need to limit this for large stores
-                import requests
-                headers = shopify.ShopifyResource.headers
-                response = requests.get(url, headers=headers)
-                data = response.json() 
-
-                # #logger.debug(f"data is : {data}")
-                
-                # #logger.debug(f"Found {len(data)} collects for smart collection {collection_id}")
-                
-                # Extract product IDs from the matching collects
-                product_ids = [collect.get('id') for collect in data['products']]
-                # #logger.debug(f"product ids are : {product_ids}")
-            else:
-                # For custom collections, use the standard approach
-                collects = collect_data.find(collection_id=collection_id, limit=250)
-                
-                all_collects = []
-                while True:
-                    for collect in collects:
-                        all_collects.append(collect)
-                    if not collects.has_next_page():
-                        break
-                    collects = collects.next_page()
-                
-                # Extract product IDs from collects
-                product_ids = [collect.attributes.get('product_id') for collect in all_collects]
-            
-            # Fetch each product based on product_id in collects
-            if product_ids:
-                from .product_class import ProductResource
-                product_resource = ProductResource(self.connector)
-                return product_resource.get_by_ids(product_ids)
-            else:
-                return []
+            logger.info(f"Successfully fetched {len(all_collections)} collections from Shopify")
+            return all_collections
             
         except Exception as e:
-            print(f"Error fetching products for collection {collection_id}: {e}")
-            return []
-    
-    def get_all_collections_with_products(self):
+            logger.error(f"Error fetching collections from Shopify: {str(e)}")
+            raise
+
+    def get_collection_by_name(self, collection_name: str) -> Optional[Dict[str, Any]]:
         """
-        Retrieves all collections and their associated products.
-        
-        Returns:
-            Dictionary with collection objects as keys and lists of products as values
-        """
-        collections = self.get_all()
-        collections_with_products = {}
-        
-        for collection in collections:
-            products = self.get_products_in_collection(collection.id)
-            collections_with_products[collection] = products
-            
-        return collections_with_products
-    
-    def collection_products_to_dataframe(self, collection, products):
-        """
-        Convert a collection and its products to a DataFrame.
+        Find a collection by its name.
         
         Args:
-            collection: Collection object
-            products: List of product objects in the collection
+            collection_name: Name of the collection to find
+            
+        Returns:
+            Collection dictionary if found, None otherwise
+        """
+        try:
+            logger.info(f"Searching for collection: {collection_name}")
+            all_collections = self.get_all()
+            
+            for collection in all_collections:
+                if collection['title'].lower() == collection_name.lower():
+                    logger.info(f"Found collection: {collection_name} (ID: {collection['id']})")
+                    return collection
+            
+            logger.warning(f"Collection not found: {collection_name}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error searching for collection {collection_name}: {str(e)}")
+            return None
+
+    def get_products_in_collection(self, collection_id: str) -> List[shopify.Product]:
+        """
+        Get all products in a specific collection.
+        
+        Args:
+            collection_id: Shopify collection ID
+            
+        Returns:
+            List of Shopify Product objects in the collection
+        """
+        try:
+            logger.info(f"Fetching products for collection ID: {collection_id}")
+            all_products = []
+            
+            # Get products from collection
+            products = shopify.Product.find(collection_id=collection_id, limit=250)
+            while True:
+                for product in products:
+                    all_products.append(product)
+                if not products.has_next_page():
+                    break
+                products = products.next_page()
+            
+            logger.info(f"Found {len(all_products)} products in collection {collection_id}")
+            return all_products
+            
+        except Exception as e:
+            logger.error(f"Error fetching products for collection {collection_id}: {str(e)}")
+            raise
+
+    def get_collection_names_for_dropdown(self) -> List[Dict[str, str]]:
+        """
+        Get collection names formatted for Streamlit dropdown.
         
         Returns:
-            DataFrame containing collection data joined with product data
+            List of dictionaries with collection names and IDs
         """
-        output = []
-        collection_data = collection.attributes
-        
-        for product in products:
-            product_data = product.attributes
+        try:
+            all_collections = self.get_all()
+            dropdown_options = []
             
-            # Create a row combining collection and product data
-            row = {
-                'collection_id': collection_data.get('id'),
-                'collection_title': collection_data.get('title'),
-                'product_id': product_data.get('id'),
-                'product_title': product_data.get('title'),
-                'product_handle': product_data.get('handle'),
-                'product_vendor': product_data.get('vendor'),
-                'product_type': product_data.get('product_type'),
-                'status': product_data.get('status'),
-                'tags': product_data.get('tags', ''),
-                'created_at': product_data.get('created_at'),
-                'updated_at': product_data.get('updated_at'),
-                'published_at': product_data.get('published_at')
+            for collection in all_collections:
+                dropdown_options.append({
+                    'name': collection['title'],
+                    'id': collection['id'],
+                    'product_count': collection.get('products_count', 'Unknown'),
+                    'type': collection.get('type', 'unknown')
+                })
+            
+            # Sort by name
+            dropdown_options.sort(key=lambda x: x['name'].lower())
+            
+            logger.info(f"Prepared {len(dropdown_options)} collections for dropdown")
+            return dropdown_options
+            
+        except Exception as e:
+            logger.error(f"Error preparing collection dropdown: {str(e)}")
+            return []
+
+    def analyze_tags_in_collection(self, collection_id: str) -> Dict[str, Any]:
+        """
+        Analyze all tags used by products in a collection.
+        
+        Args:
+            collection_id: Shopify collection ID
+            
+        Returns:
+            Dictionary with tag analysis data
+        """
+        try:
+            logger.info(f"Analyzing tags for collection {collection_id}")
+            products = self.get_products_in_collection(collection_id)
+            
+            tag_analysis = {
+                'total_products': len(products),
+                'tag_frequency': {},
+                'products_by_tag': {},
+                'unique_tags': set(),
+                'untagged_products': []
             }
             
-            # Get price from first variant
-            if 'variants' in product_data and product_data['variants']:
-                row['price'] = product_data['variants'][0].get('price', 'N/A')
-                row['sku'] = product_data['variants'][0].get('sku', 'N/A')
-                row['inventory_quantity'] = product_data['variants'][0].get('inventory_quantity', 0)
+            for product in products:
+                product_tags = [tag.strip() for tag in product.tags.split(',') if tag.strip()]
+                
+                if not product_tags:
+                    tag_analysis['untagged_products'].append({
+                        'id': str(product.id),
+                        'title': product.title,
+                        'handle': product.handle
+                    })
+                
+                for tag in product_tags:
+                    tag_analysis['unique_tags'].add(tag)
+                    
+                    # Count frequency
+                    if tag not in tag_analysis['tag_frequency']:
+                        tag_analysis['tag_frequency'][tag] = 0
+                        tag_analysis['products_by_tag'][tag] = []
+                    
+                    tag_analysis['tag_frequency'][tag] += 1
+                    tag_analysis['products_by_tag'][tag].append({
+                        'id': str(product.id),
+                        'title': product.title,
+                        'handle': product.handle,
+                        'sku': product.variants[0].sku if product.variants else 'No SKU'
+                    })
             
-            # If product has variants, include count
-            if 'variants' in product_data:
-                row['variant_count'] = len(product_data['variants'])
+            # Convert set to sorted list
+            tag_analysis['unique_tags'] = sorted(list(tag_analysis['unique_tags']))
             
-            output.append(row)
+            # Sort tags by frequency (most used first)
+            tag_analysis['sorted_tags'] = sorted(
+                tag_analysis['tag_frequency'].items(),
+                key=lambda x: x[1],
+                reverse=True
+            )
             
-        return pd.DataFrame.from_records(output)
-    
+            logger.info(f"Tag analysis complete: {len(tag_analysis['unique_tags'])} unique tags found")
+            return tag_analysis
+            
+        except Exception as e:
+            logger.error(f"Error analyzing tags for collection {collection_id}: {str(e)}")
+            raise
+
     def create(self, **kwargs):
-        pass  
+        """
+        Create a new collection (not implemented for this use case).
+        """
+        raise NotImplementedError("Collection creation not implemented in this tool")
+
+    def to_dataframe(self, collections_list: List[Dict[str, Any]]) -> pd.DataFrame:
+        """
+        Convert collections list to pandas DataFrame.
+        
+        Args:
+            collections_list: List of collection dictionaries
+            
+        Returns:
+            pandas DataFrame with collection information
+        """
+        if not collections_list:
+            return pd.DataFrame()
+        
+        data = []
+        for collection in collections_list:
+            row = {
+                'id': collection.get('id'),
+                'title': collection.get('title'),
+                'handle': collection.get('handle'),
+                'products_count': collection.get('products_count', 'Unknown'),
+                'collection_type': collection.get('type', 'unknown').title(),
+                'published': collection.get('published_at') is not None,
+                'created_at': collection.get('created_at', 'Unknown'),
+                'updated_at': collection.get('updated_at', 'Unknown')
+            }
+            data.append(row)
+        
+        df = pd.DataFrame(data)
+        logger.info(f"Created DataFrame with {len(df)} collections")
+        return df
+
+    def products_to_card_data(self, products_list: List[shopify.Product]) -> List[Dict[str, Any]]:
+        """
+        Convert products list to card display format.
+        
+        Args:
+            products_list: List of Shopify Product objects
+            
+        Returns:
+            List of dictionaries formatted for card display
+        """
+        if not products_list:
+            return []
+        
+        card_data = []
+        for product in products_list:
+            # Get primary image
+            image_url = None
+            if hasattr(product, 'images') and product.images:
+                image_url = product.images[0].src
+            elif hasattr(product, 'image') and product.image:
+                image_url = product.image.src
+            
+            # Get primary variant info
+            primary_variant = product.variants[0] if product.variants else None
+            price = primary_variant.price if primary_variant else 'N/A'
+            sku = primary_variant.sku if primary_variant else 'No SKU'
+            inventory = primary_variant.inventory_quantity if primary_variant else 'N/A'
+            
+            # Process tags
+            product_tags = [tag.strip() for tag in product.tags.split(',') if tag.strip()]
+            
+            card_info = {
+                'id': str(product.id),
+                'title': product.title,
+                'handle': product.handle,
+                'image_url': image_url,
+                'price': price,
+                'sku': sku,
+                'inventory_quantity': inventory,
+                'tags': product_tags,
+                'tags_string': product.tags,
+                'status': getattr(product, 'status', 'unknown'),
+                'product_type': getattr(product, 'product_type', ''),
+                'vendor': getattr(product, 'vendor', ''),
+                'variant_count': len(product.variants),
+                'created_at': getattr(product, 'created_at', 'Unknown'),
+                'updated_at': getattr(product, 'updated_at', 'Unknown')
+            }
+            
+            card_data.append(card_info)
+        
+        logger.info(f"Converted {len(card_data)} products to card format")
+        return card_data
