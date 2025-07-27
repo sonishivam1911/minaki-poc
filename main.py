@@ -585,6 +585,7 @@ def load_customer_data(is_aza=False):
 
         customer_data_df = crud.read_table("zakya_contacts")
         customer_data_df = customer_data_df[customer_data_df['gst_treatment'] == 'business_gst']
+        customer_data_df = customer_data_df[customer_data_df['status'] == 'active']
         if is_aza:
             aza_filter = customer_data_df['contact_name'].str.match('^AZA', case=False)
             aza_contacts = customer_data_df[aza_filter]        

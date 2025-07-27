@@ -9,7 +9,7 @@ from utils.bhavvam.sales_order_gen import (
     process_sales_order,
     process_csv_file
 )
-from server.file_management.main_file_management import upload_to_drive
+# from server.file_management.main_file_management import upload_to_drive
 from utils.zakya_api import put_record_to_zakya
 
 
@@ -51,16 +51,16 @@ def process_multiple_pdfs(uploaded_files, zakya_config):
                 raise ValueError(result_order)
 
             billid = result_order["salesorder"]["salesorder_id"]
-            serial_number = f"{result_order['salesorder']['customer_name']}-{result_order['salesorder']['salesorder_number']}"
-            function_date = result_order["salesorder"]["date"]
-            link = upload_to_drive(temp_path, 'salesorder', serial_number, function_date)
+            # serial_number = f"{result_order['salesorder']['customer_name']}-{result_order['salesorder']['salesorder_number']}"
+            # function_date = result_order["salesorder"]["date"]
+            # link = upload_to_drive(temp_path, 'salesorder', serial_number, function_date)
 
             payload = {
                 "custom_fields": [
                     {
                         "api_name": "cf_orders_drive_link",
                         "placeholder": "cf_orders_drive_link",
-                        "value": link
+                        # "value": link
                     }
                 ]
             }

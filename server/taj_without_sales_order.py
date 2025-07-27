@@ -31,7 +31,8 @@ async def create_whereclause_fetch_data(pydantic_model, filter_dict, query):
 async def find_product(style):
     """Find a product by style/SKU."""
     items_data = await create_whereclause_fetch_data(ZakyaProducts, {
-        products_mapping_zakya_products['style']: {'op': 'eq', 'value': style}
+        products_mapping_zakya_products['style']: {'op': 'eq', 'value': style},
+        'status': {'op': 'eq', 'value': 'active'}  
     }, queries.fetch_prodouct_records)    
     return items_data
 
@@ -94,8 +95,13 @@ async def create_invoices(taj_sales_df, zakya_connection_object, invoice_object)
             sku = row.get("Style", "").strip()
             branch_name = row.get("Branch Name", "").strip()
             quantity = int(row.get("Qty", 0))
-            total = math.ceil(row.get("Total", 0))
+            total = math.ceil(row.get("Rounded_Total", 0))
             prod_name = row.get("PrintName", "")
+            salesorder_number = row.get("PartyDoc No",'')
+
+            # if salesorder_number != '':
+            #     #fetch salesorder id
+
             
             # Skip empty rows
             if not branch_name or quantity <= 0:
@@ -162,6 +168,7 @@ async def create_invoices(taj_sales_df, zakya_connection_object, invoice_object)
             "exchange_rate": 1.0,
             "line_items": data["line_items"],
             "gst_treatment": "business_gst",
+            "is_inclusive_tax": True,
             "template_id": 1923531000000916001  # Hardcoded template ID
         }
         
@@ -221,7 +228,7 @@ def process_taj_sales(taj_sales_df, invoice_date, zakya_connection_object):
     # Preprocess the dataframe
     taj_sales_df["Style"] = taj_sales_df["Style"].astype(str) 
     taj_sales_df['Rounded_Total'] = taj_sales_df['Total'].apply(lambda x: math.ceil(x) if x - int(x) >= 0.5 else math.floor(x))
-    
+    taj_sales_df['Rounded_Total'] = taj_sales_df['Rounded_Total'].round(2)
     # Find existing products
     product_config = asyncio.run(preprocess_products(taj_sales_df))
     
