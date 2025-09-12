@@ -12,12 +12,19 @@ from utils.shopify.collection_resource import CollectionResource
 load_dotenv()
 
 def main():
-    connector = ShopifyConnector(os.getenv("SHOPIFY_SHOP_URL"), os.getenv("SHOPIFY_API_VERSION"), os.getenv("SHOPIFY_ACCESS_TOKEN"))
+    connector = ShopifyConnector(
+        shop_url= os.getenv("SHOPIFY_SHOP_URL"), 
+        api_version=os.getenv("SHOPIFY_API_VERSION"), 
+        access_token=os.getenv("SHOPIFY_ACCESS_TOKEN")
+    )
     connector.connect()
+    st.success("✅ Connected to Shopify successfully!")   
+
     shopify_product_controller(connector)
     shopify_collection_controller(connector)
 
 def shopify_product_controller(connector):
+    
     with st.container():
         st.header("Shopify Products")
         product_resource = ProductResource(connector)
