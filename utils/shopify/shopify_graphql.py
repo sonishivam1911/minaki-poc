@@ -1,5 +1,7 @@
 import requests
-from typing import Dict, Any, Optional
+import datetime
+import json
+from typing import Dict, Any, Optional, List
 from config.logger import logger
 
 class ShopifyGraphQLConnector:
@@ -621,4 +623,345 @@ class ShopifyGraphQLConnector:
         
         return self.execute_query(mutation, variables)
 
-#
+# Add these methods to your ShopifyGraphQLConnector class
+
+    def update_review_metafields(self, product_id: str, rating: float, review_count: int, 
+                            review_html: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Update review-related metafields for a product.
+        
+        Args:
+            product_id: Shopify product ID (with or without gid prefix)
+            rating: Rating value (e.g., 4.5)
+            review_count: Number of reviews
+            review_html: Optional HTML content for SPR reviews
+            
+        Returns:
+            Operation result
+        """
+        try:
+            # Ensure proper GraphQL ID format
+            if not product_id.startswith('gid://shopify/Product/'):
+                product_id = f"gid://shopify/Product/{product_id}"
+            
+            # Prepare metafields to update
+            metafields = []
+            
+            # Rating metafield (JSON format)
+            rating_value = {
+                "scale_min": "1.0",
+                "scale_max": "5.0", 
+                "value": str(rating)
+            }
+            
+            metafields.append({
+                "ownerId": product_id,
+                "namespace": "reviews",
+                "key": "rating",
+                "value": json.dumps(rating_value),
+                "type": "rating"
+            })
+            
+            # Review count metafield
+            metafields.append({
+                "ownerId": product_id,
+                "namespace": "reviews", 
+                "key": "rating_count",
+                "value": str(review_count),
+                "type": "number_integer"
+            })
+            
+            # Optional SPR HTML content
+            if review_html:
+                metafields.append({
+                    "ownerId": product_id,
+                    "namespace": "spr",
+                    "key": "reviews", 
+                    "value": review_html,
+                    "type": "multi_line_text_field"
+                })
+            
+            # Execute the mutation
+            result = self.bulk_update_metafields(metafields)
+            
+            logger.info(f"Updated review metafields for product {product_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error updating review metafields for product {product_id}: {str(e)}")
+            raise
+
+    def bulk_update_metafields(self, metafields: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Update multiple metafields in a single request.
+        
+        Args:
+            metafields: List of metafield objects to update
+            
+        Returns:
+            Mutation result
+        """
+        mutation = """
+        mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+                metafields {
+                    id
+                    namespace
+                    key
+                    value
+                    type
+                    createdAt
+                    updatedAt
+                }
+                userErrors {
+                    field
+                    message
+                    code
+                }
+            }
+        }
+        """
+        
+        variables = {
+            'metafields': metafields
+        }
+        
+        return self.execute_query(mutation, variables)
+
+    def delete_metafield_by_key(self, product_id: str, namespace: str, key: str) -> Dict[str, Any]:
+        """
+        Delete a specific metafield by namespace and key.
+        
+        Args:
+            product_id: Shopify product ID
+            namespace: Metafield namespace
+            key: Metafield key
+            
+        Returns:
+            Deletion result
+        """
+        try:
+            # First, find the metafield to get its ID
+            product_result = self.get_product_metafields(product_id, namespace, key)
+            
+            if not product_result.get('data', {}).get('product', {}).get('metafields', {}).get('edges'):
+                logger.warning(f"Metafield {namespace}.{key} not found for product {product_id}")
+                return {"success": False, "message": "Metafield not found"}
+            
+            metafield_id = product_result['data']['product']['metafields']['edges'][0]['node']['id']
+            
+            # Delete the metafield
+            mutation = """
+            mutation metafieldDelete($input: MetafieldDeleteInput!) {
+                metafieldDelete(input: $input) {
+                    deletedId
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            variables = {
+                'input': {
+                    'id': metafield_id
+                }
+            }
+            
+            result = self.execute_query(mutation, variables)
+            logger.info(f"Deleted metafield {namespace}.{key} for product {product_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error deleting metafield {namespace}.{key} for product {product_id}: {str(e)}")
+            raise
+
+    def get_product_metafields(self, product_id: str, namespace: Optional[str] = None, 
+                            key: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get metafields for a product with optional filtering.
+        
+        Args:
+            product_id: Shopify product ID
+            namespace: Optional namespace filter
+            key: Optional key filter
+            
+        Returns:
+            Product metafields data
+        """
+        # Ensure proper GraphQL ID format
+        if not product_id.startswith('gid://shopify/Product/'):
+            product_id = f"gid://shopify/Product/{product_id}"
+        
+        # Build metafields query with filters
+        metafields_args = "first: 50"
+        if namespace and key:
+            metafields_args = f'first: 50, namespace: "{namespace}", key: "{key}"'
+        elif namespace:
+            metafields_args = f'first: 50, namespace: "{namespace}"'
+        
+        query = f"""
+        query getProductMetafields($id: ID!) {{
+            product(id: $id) {{
+                id
+                title
+                metafields({metafields_args}) {{
+                    edges {{
+                        node {{
+                            id
+                            namespace
+                            key
+                            value
+                            type
+                            description
+                            createdAt
+                            updatedAt
+                        }}
+                    }}
+                }}
+            }}
+        }}
+        """
+        
+        variables = {'id': product_id}
+        return self.execute_query(query, variables)
+
+    def create_review_summary_metafield(self, product_id: str, reviews_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a comprehensive review summary metafield.
+        
+        Args:
+            product_id: Shopify product ID
+            reviews_data: Dictionary containing review summary data
+            
+        Returns:
+            Creation result
+        """
+        try:
+            # Ensure proper GraphQL ID format
+            if not product_id.startswith('gid://shopify/Product/'):
+                product_id = f"gid://shopify/Product/{product_id}"
+            
+            # Create comprehensive review summary
+            review_summary = {
+                "average_rating": reviews_data.get('average_rating', 0),
+                "total_reviews": reviews_data.get('total_reviews', 0),
+                "rating_distribution": reviews_data.get('rating_distribution', {}),
+                "latest_review_date": reviews_data.get('latest_review_date', ''),
+                "featured_reviews": reviews_data.get('featured_reviews', []),
+                "last_updated": datetime.now().isoformat()
+            }
+            
+            metafield = {
+                "ownerId": product_id,
+                "namespace": "reviews",
+                "key": "summary",
+                "value": json.dumps(review_summary),
+                "type": "json"
+            }
+            
+            result = self.bulk_update_metafields([metafield])
+            logger.info(f"Created review summary metafield for product {product_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error creating review summary for product {product_id}: {str(e)}")
+            raise
+
+    def update_product_seo_metafields(self, product_id: str, title_tag: str, 
+                                    description_tag: str) -> Dict[str, Any]:
+        """
+        Update SEO-related metafields for a product.
+        
+        Args:
+            product_id: Shopify product ID
+            title_tag: SEO title tag
+            description_tag: SEO description tag
+            
+        Returns:
+            Update result
+        """
+        try:
+            # Ensure proper GraphQL ID format
+            if not product_id.startswith('gid://shopify/Product/'):
+                product_id = f"gid://shopify/Product/{product_id}"
+            
+            metafields = [
+                {
+                    "ownerId": product_id,
+                    "namespace": "global",
+                    "key": "title_tag",
+                    "value": title_tag,
+                    "type": "single_line_text_field"
+                },
+                {
+                    "ownerId": product_id,
+                    "namespace": "global", 
+                    "key": "description_tag",
+                    "value": description_tag,
+                    "type": "multi_line_text_field"
+                }
+            ]
+            
+            result = self.bulk_update_metafields(metafields)
+            logger.info(f"Updated SEO metafields for product {product_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error updating SEO metafields for product {product_id}: {str(e)}")
+            raise
+
+    # Example usage functions
+    def update_product_reviews_example():
+        """Example of how to update product review metafields."""
+        
+        # Initialize connector
+        connector = ShopifyGraphQLConnector(
+            shop_url="your-shop.myshopify.com",
+            api_version="2025-01",
+            access_token="your_access_token"
+        )
+        
+        # Update reviews for a product
+        product_id = "5714011652253"  # Your product ID
+        
+        # Example 1: Update basic review data
+        result = connector.update_review_metafields(
+            product_id=product_id,
+            rating=4.8,
+            review_count=25,
+            review_html="<div>Updated review HTML content...</div>"
+        )
+        
+        # Example 2: Create comprehensive review summary
+        reviews_data = {
+            "average_rating": 4.8,
+            "total_reviews": 25,
+            "rating_distribution": {
+                "5": 18,
+                "4": 5, 
+                "3": 2,
+                "2": 0,
+                "1": 0
+            },
+            "latest_review_date": "2024-12-15",
+            "featured_reviews": [
+                {"rating": 5, "text": "Excellent quality!", "author": "Customer A"},
+                {"rating": 5, "text": "Beautiful design", "author": "Customer B"}
+            ]
+        }
+        
+        summary_result = connector.create_review_summary_metafield(
+            product_id=product_id,
+            reviews_data=reviews_data
+        )
+        
+        # Example 3: Update SEO metafields
+        seo_result = connector.update_product_seo_metafields(
+            product_id=product_id,
+            title_tag="Amazing Product | Best Quality Online Store",
+            description_tag="Discover our amazing product with excellent reviews..."
+        )
+        
+        return result, summary_result, seo_result

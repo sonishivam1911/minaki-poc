@@ -153,7 +153,7 @@ class ProductViewerApp:
             st.write("---")
     
     def render_metafields(self, metafields: List[Dict]):
-        """Render metafields in an organized way."""
+        """Render metafields in an organized way with special handling for reviews."""
         if not metafields:
             st.write("No metafields found")
             return
@@ -169,9 +169,10 @@ class ProductViewerApp:
             
             namespaces[namespace].append(metafield)
         
-        # Display metafields by namespace
+        # Display metafields by namespace without nested expanders
         for namespace, fields in namespaces.items():
-            st.write(f"**Namespace: {namespace}**")
+            # Use subheader for namespace instead of expander
+            st.subheader(f"📁 Namespace: {namespace}")
             
             for field in fields:
                 key = field.get('key', 'unknown')
@@ -179,30 +180,229 @@ class ProductViewerApp:
                 field_type = field.get('type', 'string')
                 description = field.get('description', '')
                 
-                # Format value based on type
-                if field_type == 'json':
-                    try:
-                        # Try to parse and pretty print JSON
-                        json_value = json.loads(value)
-                        formatted_value = json.dumps(json_value, indent=2)
-                        st.code(formatted_value, language='json')
-                    except:
-                        st.write(f"  • **{key}:** {value}")
-                elif field_type in ['url', 'single_line_text_field']:
-                    if value.startswith('http'):
-                        st.write(f"  • **{key}:** [Link]({value})")
-                    else:
-                        st.write(f"  • **{key}:** {value}")
-                else:
-                    st.write(f"  • **{key}:** {value}")
+                # Create unique key for each metafield
+                unique_key = f"{namespace}_{key}_{hash(value) % 10000}"
                 
-                # Show type and description if available
-                if description:
-                    st.caption(f"    Type: {field_type} | {description}")
+                # Special handling for different field types and namespaces
+                if namespace == 'reviews':
+                    self.render_review_metafield(key, value, field_type, unique_key)
+                elif namespace == 'spr' and 'reviews' in key:
+                    self.render_spr_review_html(key, value, field_type, unique_key)
+                elif field_type == 'rating':
+                    self.render_rating_metafield(key, value, field_type, unique_key)
+                elif field_type == 'json':
+                    self.render_json_metafield(key, value, field_type, unique_key)
+                elif field_type == 'list.single_line_text_field':
+                    self.render_list_metafield(key, value, field_type, unique_key)
+                elif field_type in ['multi_line_text_field', 'rich_text_field']:
+                    self.render_multiline_metafield(key, value, field_type, unique_key)
+                elif 'html' in value.lower() or '<' in value:
+                    self.render_html_metafield(key, value, field_type, unique_key)
                 else:
-                    st.caption(f"    Type: {field_type}")
+                    self.render_simple_metafield(key, value, field_type, unique_key)
+                
+                # Show metadata
+                if description:
+                    st.caption(f"Type: {field_type} | {description}")
+                else:
+                    st.caption(f"Type: {field_type}")
+                
+                st.write("---")  # Separator between fields
+
+                
+    def render_review_metafield(self, key: str, value: str, field_type: str, unique_key: str):
+        """Render review-specific metafields with special formatting."""
+        st.write(f"🌟 **{key.title()}:**")
+        
+        if key == 'rating':
+            try:
+                # Parse rating JSON
+                rating_data = json.loads(value)
+                rating_value = float(rating_data.get('value', 0))
+                scale_max = float(rating_data.get('scale_max', 5))
+                
+                # Display star rating
+                stars = "⭐" * int(rating_value)
+                empty_stars = "☆" * int(scale_max - rating_value)
+                st.write(f"  {stars}{empty_stars} ({rating_value}/{scale_max})")
+                
+            except:
+                st.write(f"  {value}")
+        
+        elif key == 'rating_count':
+            st.write(f"  📊 {value} reviews")
+        
+        else:
+            st.write(f"  {value}")
+    
+    def render_spr_review_html(self, key: str, value: str, field_type: str, unique_key: str):
+        """Render SPR (Shopify Product Reviews) HTML content."""
+        st.write(f"📝 **{key.title()}:**")
+        
+        # Extract key information from HTML
+        if 'Based on' in value and 'reviews' in value:
+            # Try to extract review count
+            import re
+            review_count_match = re.search(r'Based on (\d+) reviews', value)
+            if review_count_match:
+                count = review_count_match.group(1)
+                st.write(f"  📊 Based on {count} customer reviews")
+        
+        # Extract rating from structured data if present
+        if '"ratingValue"' in value:
+            rating_match = re.search(r'"ratingValue": "([^"]+)"', value)
+            review_count_match = re.search(r'"reviewCount": "([^"]+)"', value)
             
-            st.write("")  # Add spacing between namespaces
+            if rating_match and review_count_match:
+                rating = rating_match.group(1)
+                count = review_count_match.group(1)
+                stars = "⭐" * int(float(rating))
+                st.write(f"  {stars} {rating}/5.0 ({count} reviews)")
+        
+        # Option to view raw HTML - use columns instead of expander
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            if st.button("View Raw HTML", key=f"html_{unique_key}"):
+                st.session_state[f"show_html_{unique_key}"] = not st.session_state.get(f"show_html_{unique_key}", False)
+        
+        if st.session_state.get(f"show_html_{unique_key}", False):
+            st.code(value, language='html')
+    
+    def render_rating_metafield(self, key: str, value: str, field_type: str, unique_key: str):
+        """Render rating metafields with star display."""
+        st.write(f"⭐ **{key.title()}:**")
+        
+        try:
+            if isinstance(value, str) and value.startswith('{'):
+                # Parse JSON rating
+                rating_data = json.loads(value)
+                rating_value = float(rating_data.get('value', 0))
+                scale_max = float(rating_data.get('scale_max', 5))
+                
+                stars = "⭐" * int(rating_value)
+                empty_stars = "☆" * int(scale_max - rating_value)
+                st.write(f"  {stars}{empty_stars} ({rating_value}/{scale_max})")
+            else:
+                # Simple numeric rating
+                rating_value = float(value)
+                stars = "⭐" * int(rating_value)
+                st.write(f"  {stars} ({rating_value}/5)")
+                
+        except:
+            st.write(f"  {value}")
+    
+    def render_json_metafield(self, key: str, value: str, field_type: str, unique_key: str):
+        """Render JSON metafields with pretty formatting."""
+        st.write(f"📋 **{key.title()}:**")
+        
+        try:
+            json_value = json.loads(value)
+            st.json(json_value)
+        except:
+            st.code(value, language='json')
+    
+    def render_list_metafield(self, key: str, value: str, field_type: str, unique_key: str):
+        """Render list metafields as bullet points."""
+        st.write(f"📝 **{key.title()}:**")
+        
+        try:
+            # Parse list (usually JSON array)
+            if value.startswith('['):
+                items = json.loads(value)
+                for item in items:
+                    st.write(f"  • {item}")
+            else:
+                # Fallback for comma-separated values
+                items = [item.strip() for item in value.split(',')]
+                for item in items:
+                    st.write(f"  • {item}")
+        except:
+            st.write(f"  {value}")
+    
+    def render_multiline_metafield(self, key: str, value: str, field_type: str, unique_key: str):
+        """Render multi-line text with proper formatting."""
+        st.write(f"📄 **{key.title()}:**")
+        
+        # Check if it contains HTML
+        if '<' in value and '>' in value:
+            # Show clean text version and button to view HTML
+            import re
+            clean_text = re.sub('<[^<]+?>', '', value)
+            st.write(f"  {clean_text[:200]}{'...' if len(clean_text) > 200 else ''}")
+            
+            col1, col2 = st.columns([3, 1])
+            with col2:
+                if st.button("View HTML", key=f"multiline_{unique_key}"):
+                    st.session_state[f"show_multiline_{unique_key}"] = not st.session_state.get(f"show_multiline_{unique_key}", False)
+            
+            if st.session_state.get(f"show_multiline_{unique_key}", False):
+                st.markdown(value, unsafe_allow_html=True)
+        else:
+            # Regular text
+            lines = value.split('\n')
+            if len(lines) > 3:
+                # Show first few lines and button for full content
+                for line in lines[:3]:
+                    if line.strip():
+                        st.write(f"  {line}")
+                
+                col1, col2 = st.columns([3, 1])
+                with col2:
+                    if st.button("View Full", key=f"full_{unique_key}"):
+                        st.session_state[f"show_full_{unique_key}"] = not st.session_state.get(f"show_full_{unique_key}", False)
+                
+                if st.session_state.get(f"show_full_{unique_key}", False):
+                    st.write(value)
+            else:
+                st.write(f"  {value}")
+    
+    def render_html_metafield(self, key: str, value: str, field_type: str, unique_key: str):
+        """Render HTML content safely."""
+        st.write(f"🌐 **{key.title()}:**")
+        
+        # Show preview of content
+        import re
+        clean_text = re.sub('<[^<]+?>', '', value)
+        st.write(f"  {clean_text[:150]}{'...' if len(clean_text) > 150 else ''}")
+        
+        # Buttons for viewing HTML
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col2:
+            if st.button("View HTML", key=f"view_html_{unique_key}"):
+                st.session_state[f"show_code_{unique_key}"] = not st.session_state.get(f"show_code_{unique_key}", False)
+        
+        with col3:
+            if st.button("Render HTML", key=f"render_{unique_key}"):
+                st.session_state[f"render_html_{unique_key}"] = not st.session_state.get(f"render_html_{unique_key}", False)
+        
+        if st.session_state.get(f"show_code_{unique_key}", False):
+            st.code(value, language='html')
+            
+        if st.session_state.get(f"render_html_{unique_key}", False):
+            st.markdown(value, unsafe_allow_html=True)
+    
+    def render_simple_metafield(self, key: str, value: str, field_type: str, unique_key: str):
+        """Render simple text metafields."""
+        st.write(f"📝 **{key.title()}:**")
+        
+        # Handle URLs
+        if field_type == 'url' or (isinstance(value, str) and value.startswith('http')):
+            st.write(f"  🔗 [Link]({value})")
+        else:
+            # Truncate long values
+            if len(value) > 200:
+                st.write(f"  {value[:200]}...")
+                
+                col1, col2 = st.columns([3, 1])
+                with col2:
+                    if st.button("View Full", key=f"simple_full_{unique_key}"):
+                        st.session_state[f"show_simple_full_{unique_key}"] = not st.session_state.get(f"show_simple_full_{unique_key}", False)
+                
+                if st.session_state.get(f"show_simple_full_{unique_key}", False):
+                    st.write(value)
+            else:
+                st.write(f"  {value}")
     
     def run(self):
         """Run the main Streamlit app."""
