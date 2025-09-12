@@ -152,6 +152,14 @@ class CollectionTagDashboard:
         
         st.subheader(f"📦 Products in '{selected_collection['name']}'")
         st.write(f"**{len(products)} products** found in this collection")
+
+        # print product
+
+        for product in products:
+            print(f"Product is : {product}")
+            break
+
+
         
         if not products:
             st.info("ℹ️ No products found in this collection")

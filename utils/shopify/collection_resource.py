@@ -119,7 +119,10 @@ class CollectionResource(BaseShopifyResource):
                     break
                 products = products.next_page()
             
-            logger.info(f"Found {len(all_products)} products in collection {collection_id}")
+            if all_products:
+                first_product = all_products[0]
+                print(f"Product attributes keys: {list(first_product.attributes.keys())}")
+                print(f"Product attributes: {first_product.attributes}")
             return all_products
             
         except Exception as e:
