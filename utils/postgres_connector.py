@@ -260,6 +260,15 @@ class PostgresCRUD:
 
 
         return "WHERE " + " AND ".join(clauses) if len(clauses) > 0 else clause
+    
+    def insert_into_table(self, table_name, columns, values):
+        try:
+            with self.engine.connect() as connection:
+                query = f"INSERT INTO {table_name} ({columns}) VALUES ({values})"
+                connection.execute(query)
+            return f"Row inserted into '{table_name}' successfully."
+        except Exception as e:
+            return f"Error inserting into table '{table_name}': {e}"
 
 
 
